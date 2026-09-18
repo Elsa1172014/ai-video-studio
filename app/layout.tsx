@@ -1,0 +1,1 @@
+import './globals.css';export const metadata={title:'AI Video Studio',description:'Create AI videos, avatars and long-form content'};export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}
