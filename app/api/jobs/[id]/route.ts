@@ -1,0 +1,1 @@
+import {NextResponse} from 'next/server';import {getGeneration} from '@/lib/generation';export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){try{const{id}=await params;return NextResponse.json(await getGeneration(id))}catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Job lookup failed'},{status:500})}}
