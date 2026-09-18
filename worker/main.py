@@ -5,6 +5,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel,Field
 from storage import OUTPUT_DIR
 from adapters import ADAPTERS
+from fastapi import UploadFile,File
+from media import save_upload
+from render import RenderRequest,render
 app=FastAPI(title="AI Video Studio GPU Worker",version="0.2.0")
 app.mount("/outputs",StaticFiles(directory=str(OUTPUT_DIR)),name="outputs")
 JOBS={}
@@ -30,3 +33,12 @@ def status(job:str,authorization:Optional[str]=Header(None)):
  auth(authorization)
  if job not in JOBS:raise HTTPException(404,"Job not found")
  return JOBS[job]
+
+@app.post("/media")
+async def media(file:UploadFile=File(...),authorization:Optional[str]=Header(None)):
+ auth(authorization);return await save_upload(file)
+@app.post("/render")
+async def final_render(req:RenderRequest,authorization:Optional[str]=Header(None)):
+ auth(authorization)
+ try:return {"status":"completed","outputUrl":await render(req)}
+ except Exception as e:return {"status":"failed","message":str(e)}
