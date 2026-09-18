@@ -1,0 +1,1 @@
+import {NextResponse} from 'next/server';import {providers} from '@/lib/providers';export async function GET(){return NextResponse.json({providers,note:'GPU model adapters require a configured inference endpoint before generation.'});}
