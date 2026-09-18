@@ -1,0 +1,7 @@
+.next
+node_modules
+.env
+.env.local
+worker/__pycache__
+worker/.venv
+worker/outputs
