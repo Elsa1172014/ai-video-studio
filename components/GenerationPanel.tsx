@@ -16,9 +16,8 @@ async function readJob(r:Response):Promise<Job>{
   catch{return{status:'failed',error:`Server returned ${r.status}: ${text.slice(0,240)||'empty response'}`};}
 }
 
-export default function GenerationPanel({prompt}:{prompt:string}){
+export default function GenerationPanel({prompt,duration=5}:{prompt:string;duration?:number}){
   const [provider,setProvider]=useState('ltx');
-  const [duration,setDuration]=useState(3);
   const [job,setJob]=useState<Job|null>(null);
   const [busy,setBusy]=useState(false);
   const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -81,10 +80,8 @@ export default function GenerationPanel({prompt}:{prompt:string}){
           <p className="text-xs text-purple-400">GENERATION ENGINE</p>
           <h2 className="font-bold">Generate selected scene</h2>
         </div>
-        <div className="flex gap-2">
-          <select value={duration} onChange={e=>setDuration(Number(e.target.value))} className="ghost rounded-xl p-3">
-            <option value={3}>3 sec</option><option value={5}>5 sec</option><option value={8}>8 sec</option>
-          </select>
+        <div className="flex items-center gap-2">
+          <span className="ghost rounded-xl p-3 text-sm">{duration} sec scene</span>
           <select value={provider} onChange={e=>setProvider(e.target.value)} className="ghost rounded-xl p-3">
             <option value="ltx">LTX Video</option><option value="wan">Wan 2.2</option>
           </select>
