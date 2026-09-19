@@ -2,13 +2,13 @@
 import {useState} from 'react';
 import {videoTools} from '@/lib/video-tools';
 import Link from 'next/link';
-import {saveProject} from '@/lib/project-store';
+import {saveProject,VideoProject} from '@/lib/project-store';
 import GenerationPanel from '@/components/GenerationPanel';
 import SystemStatus from '@/components/SystemStatus';
 
 export default function Home(){
- const[prompt,setPrompt]=useState('');const[minutes,setMinutes]=useState(1);const[plan,setPlan]=useState<{prompt?:string;scenes:Array<{id:string;title:string;duration:number;status:string;prompt:string}>}|null>(null);const[busy,setBusy]=useState(false);const[selected,setSelected]=useState(0);
- async function generate(){if(!prompt.trim())return;setBusy(true);const r=await fetch('/api/script',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,minutes})});const data=await r.json();setPlan(data);setSelected(0);saveProject(data);setBusy(false)}
+ const[prompt,setPrompt]=useState('');const[minutes,setMinutes]=useState(1);const[plan,setPlan]=useState<VideoProject|null>(null);const[busy,setBusy]=useState(false);const[selected,setSelected]=useState(0);
+ async function generate(){if(!prompt.trim())return;setBusy(true);const r=await fetch('/api/script',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,minutes})});const data:VideoProject=await r.json();setPlan(data);setSelected(0);saveProject(data);setBusy(false)}
  const scene=plan?.scenes?.[selected];
  return <main className="min-h-screen"><header className="border-b border-white/10 px-6 py-4"><b className="text-xl">AI Video Studio</b><span className="ml-3 text-sm text-purple-400">Open-source AI creation</span><div className="float-right flex items-center gap-5"><SystemStatus/><Link href="/studio" className="text-sm text-purple-300">Production Studio</Link><Link href="/projects" className="text-sm text-slate-300 hover:text-white">My Projects →</Link></div></header>
  <div className="mx-auto grid max-w-7xl gap-6 p-6 lg:grid-cols-[240px_1fr_340px]"><aside className="card p-3"><p className="mb-3 px-2 text-xs uppercase text-slate-500">Create</p>{videoTools.map((t,i)=><button key={t.id} className={"mb-2 w-full rounded-xl p-3 text-left "+(i===0?'bg-purple-600/20 text-purple-300':'hover:bg-white/5')}><b className="block text-sm">{t.name}</b><span className="text-xs text-slate-500">{t.engine}</span></button>)}</aside>
