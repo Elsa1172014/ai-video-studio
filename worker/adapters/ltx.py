@@ -3,6 +3,7 @@ import sys
 import shutil
 import asyncio
 import tempfile
+import signal
 from pathlib import Path
 
 from .base import VideoAdapter
@@ -57,12 +58,30 @@ class LTXAdapter(VideoAdapter):
             str(job_dir),
         ]
 
+        # A failed/aborted LTX subprocess can leave CUDA memory occupied. Before
+        # starting a new scene, remove only stale LTX inference processes from
+        # previous jobs; never kill the worker itself.
+        try:
+            cleanup = await asyncio.create_subprocess_exec(
+                "pkill", "-f", str(inference),
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await cleanup.communicate()
+        except Exception:
+            pass
+
+        env = os.environ.copy()
+        env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
         try:
             process = await asyncio.create_subprocess_exec(
                 *args,
                 cwd=str(ltx_dir),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=env,
+                start_new_session=True,
             )
             stdout, stderr = await process.communicate()
 
