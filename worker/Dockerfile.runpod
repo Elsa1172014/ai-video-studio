@@ -1,0 +1,9 @@
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True LTX_DIR=/opt/LTX-Video OUTPUT_DIR=/runpod-volume/outputs JOB_DIR=/runpod-volume/jobs
+RUN apt-get update && apt-get install -y --no-install-recommends git python3 python3-pip ffmpeg && rm -rf /var/lib/apt/lists/*
+WORKDIR /opt
+RUN git clone --depth 1 https://github.com/Lightricks/LTX-Video.git
+RUN python3 -m pip install --no-cache-dir -e /opt/LTX-Video && python3 -m pip install --no-cache-dir runpod fastapi uvicorn python-multipart imageio-ffmpeg
+WORKDIR /app
+COPY worker/ /app/
+CMD ["python3","-u","runpod_handler.py"]
