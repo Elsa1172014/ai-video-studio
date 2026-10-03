@@ -7,7 +7,7 @@ type Clip={sceneId:string;title:string;url:string};
 async function json(r:Response){const t=await r.text();try{return JSON.parse(t)}catch{return{status:'failed',error:t||('HTTP '+r.status)}}}
 const wait=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 
-export default function FullVideoGenerator({scenes}:{scenes:Scene[]}){
+export default function FullVideoGenerator({scenes,characterImageUrl}:{scenes:Scene[];characterImageUrl?:string}){
  const key=useMemo(()=>{let h=2166136261;for(const s of scenes){const x=s.id+'|'+s.prompt+'|'+s.duration;for(let i=0;i<x.length;i++){h^=x.charCodeAt(i);h=Math.imul(h,16777619)}}return 'ai-video-progress-'+(h>>>0).toString(16)},[scenes]);
  const[running,setRunning]=useState(false),[index,setIndex]=useState(-1),[clips,setClips]=useState<Clip[]>([]),[error,setError]=useState(''),[finalUrl,setFinalUrl]=useState('');
  const stop=useRef(false);
@@ -21,7 +21,7 @@ export default function FullVideoGenerator({scenes}:{scenes:Scene[]}){
   try{
    for(let i=0;i<scenes.length;i++){
     const scene=scenes[i];if(made.some(c=>c.sceneId===scene.id)){setIndex(i);continue}
-    setIndex(i);const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'ltx',prompt:scene.prompt,duration:scene.duration})});
+    setIndex(i);const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'ltx',prompt:scene.prompt,duration:scene.duration,...(characterImageUrl?{imageUrl:characterImageUrl}:{})})});
     let job:Job=await json(r);if(!r.ok)throw new Error(job.error||job.message||'Generation request failed');job=await complete(job);
     if(job.status!=='completed'||!job.outputUrl)throw new Error(job.error||job.message||('Scene '+(i+1)+' failed'));
     made.push({sceneId:scene.id,title:scene.title,url:job.outputUrl});setClips([...made]);persist(made);
