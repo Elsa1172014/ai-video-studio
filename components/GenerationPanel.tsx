@@ -16,7 +16,7 @@ async function readJob(r:Response):Promise<Job>{
   catch{return{status:'failed',error:`Server returned ${r.status}: ${text.slice(0,240)||'empty response'}`};}
 }
 
-export default function GenerationPanel({prompt,duration=5}:{prompt:string;duration?:number}){
+export default function GenerationPanel({prompt,duration=5,imageUrl}:{prompt:string;duration?:number;imageUrl?:string}){
   const [provider,setProvider]=useState('ltx');
   const [job,setJob]=useState<Job|null>(null);
   const [busy,setBusy]=useState(false);
@@ -48,7 +48,7 @@ export default function GenerationPanel({prompt,duration=5}:{prompt:string;durat
       const r=await fetch('/api/generate',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({provider,prompt,duration})
+        body:JSON.stringify({provider,prompt,duration,imageUrl})
       });
       const data=await readJob(r);
       setJob(data);
@@ -83,7 +83,7 @@ export default function GenerationPanel({prompt,duration=5}:{prompt:string;durat
         <div className="flex items-center gap-2">
           <span className="ghost rounded-xl p-3 text-sm">{duration} sec scene</span>
           <select value={provider} onChange={e=>setProvider(e.target.value)} className="ghost rounded-xl p-3">
-            <option value="ltx">LTX Video</option><option value="wan">Wan 2.2</option>
+            <option value="ltx">LTX Video (text)</option><option value="wan">Wan 2.2 (reference image)</option>
           </select>
         </div>
       </div>
