@@ -1,39 +1,8 @@
-import {NextResponse} from 'next/server';
-import {z} from 'zod';
-
-const S=z.object({prompt:z.string().min(3),minutes:z.number().min(0.5).max(20)});
-
-function sentences(text:string){
- return text.replace(/\s+/g,' ').split(/(?<=[.!?؟؛])\s+|\n+/).map(x=>x.trim()).filter(Boolean);
-}
-
-export async function POST(req:Request){
- try{
-  const x=S.parse(await req.json());
-  const totalSeconds=Math.round(x.minutes*60);
-  const sceneDuration=5;
-  const count=Math.max(6,Math.min(240,Math.ceil(totalSeconds/sceneDuration)));
-  const story=sentences(x.prompt);
-  const continuity='Keep the same main characters, facial identity, age, clothing, locations, lighting logic and cinematic visual style throughout the whole story. Do not introduce unrelated people, objects or events.';
-  const scenes=Array.from({length:count},(_,i)=>{
-   const source=story[i%Math.max(1,story.length)]||x.prompt;
-   const previous=i>0?(story[(i-1)%Math.max(1,story.length)]||''):'';
-   const duration=i===count-1?Math.max(3,totalSeconds-sceneDuration*(count-1)):sceneDuration;
-   const progress=(i+0.5)/count;
-   const phase=progress<0.2?'opening':progress<0.65?'development':progress<0.9?'climax':'ending';
-   const prompt=[
-    'STORY CONTEXT: '+x.prompt,
-    'CURRENT STORY BEAT: '+source,
-    previous?'PREVIOUS BEAT: '+previous:'',
-    'SCENE '+(i+1)+' OF '+count+' ('+phase+').',
-    'Show the CURRENT STORY BEAT literally and visually. Preserve narrative cause and effect from the previous scene.',
-    continuity,
-    'Cinematic composition, natural motion, clear subject action, no text, no subtitles, no logos.'
-   ].filter(Boolean).join('\n');
-   return {id:crypto.randomUUID(),title:'Scene '+(i+1)+' · '+phase,sourceText:source,prompt,duration,status:'planned' as const};
-  });
-  return NextResponse.json({id:crypto.randomUUID(),title:x.prompt.slice(0,55),prompt:x.prompt,minutes:x.minutes,totalSeconds,sceneDuration,createdAt:new Date().toISOString(),scenes});
- }catch(e){
-  return NextResponse.json({error:e instanceof Error?e.message:'Story planning failed'},{status:400});
- }
-}
+import {NextResponse} from 'next/server';import {z} from 'zod';
+const C=z.object({id:z.string(),name:z.string(),role:z.string().optional(),appearance:z.string(),wardrobe:z.string().optional(),voice:z.string().optional(),personality:z.string().optional(),relationships:z.string().optional(),referenceImageUrl:z.string().url().optional()});
+const M=z.object({episodeNumber:z.number(),summary:z.string(),continuityNotes:z.string().optional()});
+const S=z.object({prompt:z.string().min(3),minutes:z.number().min(.5).max(20),mode:z.enum(['education','series']).default('education'),seriesTitle:z.string().optional(),episodeNumber:z.number().optional(),characters:z.array(C).default([]),episodeMemory:z.array(M).default([])});
+function sentences(t:string){return t.replace(/\s+/g,' ').split(/(?<=[.!?؟؛])\s+|\n+/).map(x=>x.trim()).filter(Boolean)}
+function chunks(p:string[],n:number){const o:string[]=[];const s=Math.max(1,Math.ceil(p.length/n));for(let i=0;i<p.length;i+=s)o.push(p.slice(i,i+s).join(' '));return o}
+function durations(total:number,count:number){const b=Math.max(10,Math.min(60,Math.round(total/count)));const v=Array.from({length:count},()=>b);let d=total-v.reduce((a,b)=>a+b,0),i=0;while(d&&i<10000){const k=i%count;if(d>0&&v[k]<60){v[k]++;d--}else if(d<0&&v[k]>10){v[k]--;d++}i++}return v}
+export async function POST(req:Request){try{const x=S.parse(await req.json()),total=Math.round(x.minutes*60),beats=chunks(sentences(x.prompt),Math.max(1,Math.round(total/30))),count=Math.max(1,Math.min(beats.length,Math.floor(total/10))),selected=beats.slice(0,count),timing=durations(total,count);const bible=x.characters.map(c=>[c.name,c.role,c.appearance,c.wardrobe,c.voice,c.personality,c.relationships].filter(Boolean).join(' | ')).join('\n');const memory=x.episodeMemory.slice(-5).map(m=>'Episode '+m.episodeNumber+': '+m.summary+(m.continuityNotes?' | '+m.continuityNotes:'')).join('\n');const scenes=selected.map((beat,i)=>{const rules=x.mode==='education'?'Preserve supplied educational meaning. Do not invent or change facts.':'Keep recurring characters identical in face, age, body, voice and established wardrobe. Never redesign them.';const prompt=[rules,bible&&'CHARACTER BIBLE:\n'+bible,memory&&'PREVIOUS EPISODES:\n'+memory,'STORY CONTEXT: '+x.prompt,'CURRENT SCENE: '+beat,i?'PREVIOUS SCENE: '+selected[i-1]:'','Cinematic composition, natural motion, clear action, no logos.'].filter(Boolean).join('\n');return{id:crypto.randomUUID(),title:(x.mode==='education'?'Learning Scene ':'Episode Scene ')+(i+1),sourceText:beat,referenceImageUrl:x.characters.find(c=>c.referenceImageUrl)?.referenceImageUrl,prompt,duration:timing[i],status:'planned' as const}});return NextResponse.json({id:crypto.randomUUID(),title:x.prompt.slice(0,55),prompt:x.prompt,mode:x.mode,seriesTitle:x.seriesTitle,episodeNumber:x.episodeNumber,characters:x.characters,episodeMemory:x.episodeMemory,minutes:x.minutes,totalSeconds:total,createdAt:new Date().toISOString(),scenes})}catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Planning failed'},{status:400})}}

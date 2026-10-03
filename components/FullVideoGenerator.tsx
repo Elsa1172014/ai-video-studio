@@ -21,7 +21,7 @@ export default function FullVideoGenerator({scenes}:{scenes:Scene[]}){
   try{
    for(let i=0;i<scenes.length;i++){
     const scene=scenes[i];if(made.some(c=>c.sceneId===scene.id)){setIndex(i);continue}
-    setIndex(i);const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'ltx',prompt:scene.prompt,duration:scene.duration})});
+    setIndex(i);const r=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:scene.referenceImageUrl?'wan':'ltx',prompt:scene.prompt,duration:scene.duration,imageUrl:scene.referenceImageUrl})});
     let job:Job=await json(r);if(!r.ok)throw new Error(job.error||job.message||'Generation request failed');job=await complete(job);
     if(job.status!=='completed'||!job.outputUrl)throw new Error(job.error||job.message||('Scene '+(i+1)+' failed'));
     made.push({sceneId:scene.id,title:scene.title,url:job.outputUrl});setClips([...made]);persist(made);
