@@ -1,6 +1,6 @@
 export type Scene={id:string;title:string;prompt:string;sourceText?:string;duration:number;status:'planned'|'generating'|'ready'};
-export type Character={name:string;description:string};
-export type VideoProject={id:string;title:string;prompt:string;mode?:'education'|'series';episodeTitle?:string;characters?:Character[];minutes:number;totalSeconds?:number;sceneDuration?:number;createdAt:string;scenes:Scene[]};
+export type Character={name:string;description:string;imageUrl?:string};
+export type VideoProject={id:string;title:string;prompt:string;mode?:'education'|'series';seriesTitle?:string;episodeTitle?:string;episodeMemory?:string;characters?:Character[];minutes:number;totalSeconds?:number;sceneDuration?:number;createdAt:string;scenes:Scene[]};
 const KEY='ai-video-studio-projects-v1';
 export function loadProjects():VideoProject[]{if(typeof window==='undefined')return[];try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]}}
 export function saveProject(p:VideoProject){const all=loadProjects().filter(x=>x.id!==p.id);localStorage.setItem(KEY,JSON.stringify([p,...all]));}
