@@ -1,5 +1,5 @@
-// Editing one scene of a stored storyboard. Changed scenes get fresh shots (new ids), so their
-// old clips are no longer used; untouched scenes keep their completed clips.
+// Editing one scene of a stored storyboard. An edited scene gets a new id and fresh shots, so its
+// old clips and voice track are no longer used; untouched scenes keep their completed clips.
 import * as db from './db';
 import {HttpError, notFound} from './http';
 import type {DialogueLine, OwnerKind, Scene} from '@/lib/types';
@@ -19,7 +19,7 @@ export async function editScene(kind: OwnerKind, id: string, sceneId: string, pa
     const i = scenes?.findIndex(s => s.id === sceneId) ?? -1;
     if (!scenes || i < 0) throw notFound('Scene');
     const ctx = await seriesContext(e.seriesId, e.number);
-    const merged: Scene = {...scenes[i], ...patch};
+    const merged: Scene = {...scenes[i], ...patch, id: crypto.randomUUID()};
     const next = finishScene(merged, scenes[i - 1], scenes.length, {mode: 'series', aspectRatio: e.aspectRatio, style: ctx.series.style, characters: ctx.characters, continuity: ctx.continuity, maxShotSeconds: maxShotSeconds()});
     const updated = scenes.map((s, k) => (k === i ? next : s));
     return db.put('episode', id, e.seriesId, {...e, storyboard: {...e.storyboard!, scenes: updated}, updatedAt: new Date().toISOString()});
@@ -28,7 +28,7 @@ export async function editScene(kind: OwnerKind, id: string, sceneId: string, pa
   const scenes = p.storyboard?.scenes;
   const i = scenes?.findIndex(s => s.id === sceneId) ?? -1;
   if (!scenes || i < 0) throw notFound('Scene');
-  const merged: Scene = {...scenes[i], ...patch, dialogue: []};
+  const merged: Scene = {...scenes[i], ...patch, dialogue: [], id: crypto.randomUUID()};
   const next = finishScene(merged, scenes[i - 1], scenes.length, {mode: 'education', aspectRatio: p.aspectRatio, characters: [], maxShotSeconds: maxShotSeconds()});
   const updated = scenes.map((s, k) => (k === i ? next : s));
   return db.put('project', id, '', {...p, storyboard: {...p.storyboard!, scenes: updated}, updatedAt: new Date().toISOString()});
