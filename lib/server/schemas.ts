@@ -8,7 +8,9 @@ export const Lang = z.enum(['ar', 'en']);
 export const Minutes = z.number().min(0.5).max(30);
 
 export const Voice = z.object({provider: text(40).min(1), voiceId: text(120).min(1), speakingStyle: text(300).optional()});
-export const Media = z.object({url: z.string().url().max(2000), key: text(300).optional(), durable: z.boolean(), contentType: text(80).optional()});
+// Durable media URL, or a /api/files/ path from the local dev store.
+const MediaUrl = z.string().max(2000).refine(u => /^https?:\/\//.test(u) || /^\/api\/files\/[A-Za-z0-9/._-]+$/.test(u), 'Invalid media URL');
+export const Media = z.object({url: MediaUrl, key: text(300).optional(), durable: z.boolean(), contentType: text(80).optional()});
 
 export const SeriesIn = z.object({
   title: text(160).min(1), logline: text(1000).optional(), style: text(400).optional(),

@@ -32,7 +32,10 @@ Target episode/video lengths include 1, 3, 5, 10, 15 and 20 minutes. Individual 
 - API routes for script, plan, generate, jobs, media, voice, dub, render, video and health.
 - GPU worker/adapters and RunPod handler.
 
-## Important current limitation
+## Status (October 2026)
+Items 1-8 of the priorities below are implemented on main via the persistence/production PR: server-side storage, character + voice lock, episode memory, durable media, persisted jobs with retry/resume, audio in the final render. See docs/PLATFORM.md. Still open: real-provider verification on RunPod, dubbing, lip-sync/avatar adapters, user accounts.
+
+## Former limitation (resolved)
 The Character Bible is partly implemented, but persistence is browser localStorage and episodeMemory is currently sent as an empty array from the home UI. This is NOT yet production-grade cross-device/cross-episode memory.
 
 ## Next implementation priorities

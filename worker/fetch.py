@@ -1,6 +1,6 @@
 import os,pathlib,urllib.request,uuid,socket,ipaddress
 from urllib.parse import urlparse
-from storage import OUTPUT_DIR
+from storage import OUTPUT_DIR,s3_download
 
 MAX_BYTES=int(os.getenv("MAX_FETCH_MB","1024"))*1024*1024
 
@@ -29,8 +29,9 @@ def fetch_media(value:str,dest_dir:pathlib.Path,suffix:str)->pathlib.Path:
  """Local output path, or download an http(s) URL with a size cap (no other schemes)."""
  local=local_output(value)
  if local:return local
- assert_public_url(value)
  out=dest_dir/f"{uuid.uuid4()}{suffix}"
+ if s3_download(value,out):return out
+ assert_public_url(value)
  req=urllib.request.Request(value,headers={"User-Agent":"AI-Video-Studio/1.0"})
  with urllib.request.urlopen(req,timeout=120) as r, out.open("wb") as f:
   total=0

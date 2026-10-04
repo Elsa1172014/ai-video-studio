@@ -46,7 +46,9 @@ function videoInput(o: Owner, scene: Scene, shotId: string) {
   const shot = scene.shots.find(x => x.id === shotId);
   if (!shot) throw notFound('Shot');
   const {width, height} = frame(o.aspectRatio);
-  return {provider: videoProvider(), prompt: shot.prompt, duration: shot.duration, width, height, ...(scene.referenceImageUrl ? {imageUrl: scene.referenceImageUrl} : {})};
+  // Local dev-store images are relative; the GPU can only fetch them via PUBLIC_APP_URL.
+  const ref = scene.referenceImageUrl?.startsWith('/') ? (process.env.PUBLIC_APP_URL ? process.env.PUBLIC_APP_URL.replace(/\/$/, '') + scene.referenceImageUrl : undefined) : scene.referenceImageUrl;
+  return {provider: videoProvider(), prompt: shot.prompt, duration: shot.duration, width, height, ...(ref ? {imageUrl: ref} : {})};
 }
 
 /** Maps narration to the narrator voice and each dialogue line to the speaker's locked voice. */

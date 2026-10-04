@@ -117,7 +117,7 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
       </div>
       <div className="flex flex-wrap gap-2">
         {running ? <button onClick={stopAll} className="btn ghost">Pause queue</button>
-          : <button onClick={produceAll} disabled={!shots.length} className="btn primary disabled:opacity-40">{doneClips ? 'Resume production' : 'Produce full video'}</button>}
+          : !(allClips && final?.status === 'completed') && <button onClick={produceAll} disabled={!shots.length} className="btn primary disabled:opacity-40">{doneClips ? 'Resume production' : 'Produce full video'}</button>}
         <button onClick={() => act(() => submit({type: 'render', force: final?.status === 'completed'}))} disabled={!allClips || jobs.some(ACTIVE)} className="btn ghost disabled:opacity-40">{final?.status === 'completed' ? 'Re-render' : 'Render final video'}</button>
       </div>
     </div>

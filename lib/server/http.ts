@@ -38,7 +38,7 @@ export function route<A extends unknown[]>(fn: (...args: A) => Promise<unknown>)
         return NextResponse.json({error: 'Invalid request', details: e.issues.map(i => `${i.path.join('.') || 'body'}: ${i.message}`)}, {status: 400});
       }
       console.error('[api]', e);
-      return NextResponse.json({error: e instanceof Error ? e.message : 'Internal error'}, {status: 500});
+      return NextResponse.json({error: 'Internal server error. Check the server logs.'}, {status: 500});
     }
   };
 }

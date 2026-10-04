@@ -110,6 +110,7 @@ export function planScenes(x: PlanInput): Omit<Storyboard, 'createdAt'> {
   const sum = durations.reduce((a, b) => a + b, 0);
   if (sum > total + 5) warnings.push(`The text needs about ${Math.ceil(sum / 60)} min to narrate; the target was ${x.minutes} min. Nothing was cut.`);
   if (estTotal < total * 0.5 && x.mode === 'education') warnings.push('The source is short for this length; scenes include extra visual pacing but no added facts.');
+  if (sum < total - 5) warnings.push(`The ${x.mode === 'education' ? 'text' : 'script'} fills about ${Math.round(sum / 6) / 10} of the ${x.minutes} min target (scenes are capped at ${MAX_SCENE} s). Add more ${x.mode === 'education' ? 'content' : 'story'} or choose a shorter length.`);
 
   const scenes: Scene[] = groups.map((g, i) => {
     const dialogue = g.flatMap(u => (u.dialogue ? [u.dialogue] : []));
