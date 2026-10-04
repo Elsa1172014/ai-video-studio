@@ -1,2 +1,27 @@
-import {NextResponse} from 'next/server';
-export async function POST(req:Request){try{const form=await req.formData();const file=form.get('file');if(!(file instanceof File))return NextResponse.json({error:'Image file is required'},{status:400});if(!file.type.startsWith('image/'))return NextResponse.json({error:'Only image files are allowed'},{status:400});if(file.size>10*1024*1024)return NextResponse.json({error:'Image must be 10 MB or smaller'},{status:413});const base=process.env.GPU_API_URL?.replace(/\/$/,'');if(!base)return NextResponse.json({error:'Image upload storage is not configured. Set GPU_API_URL.'},{status:503});const out=new FormData();out.set('file',file,file.name);const headers:Record<string,string>={};if(process.env.GPU_API_KEY)headers.Authorization='Bearer '+process.env.GPU_API_KEY;const r=await fetch(base+'/media',{method:'POST',headers,body:out,cache:'no-store'});const data=await r.json();if(!r.ok)return NextResponse.json(data,{status:r.status});const raw=data.url||data.outputUrl||data.path;if(!raw)return NextResponse.json({error:'Worker did not return an image URL'},{status:502});return NextResponse.json({url:String(raw).startsWith('/')?base+raw:String(raw)})}catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Upload failed'},{status:500})}}
+import {z} from 'zod';
+import {route, HttpError} from '@/lib/server/http';
+import {ingestRemote, putBytes, validate, LIMITS, storageDurable} from '@/lib/server/storage';
+import {assertSafeUrl} from '@/lib/server/net';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// Uploads a character reference image (multipart "file") or imports one from a public https URL
+// (JSON {url}) into durable storage. Bytes are validated by magic number, never by extension.
+export const POST = route(async (req: Request) => {
+  const type = req.headers.get('content-type') || '';
+  if (type.includes('application/json')) {
+    const {url} = z.object({url: z.string().url().max(2000)}).parse(await req.json());
+    await assertSafeUrl(url);
+    const ref = await ingestRemote(url, 'references', ['image'], {trustedOnly: false});
+    return {...ref, warning: storageDurable() ? undefined : 'No durable storage configured; the original URL is kept.'};
+  }
+  if (Number(req.headers.get('content-length') || 0) > LIMITS.image + 64 * 1024) throw new HttpError(413, 'Image must be 4 MB or smaller');
+  const form = await req.formData().catch(() => null);
+  const file = form?.get('file');
+  if (!(file instanceof File)) throw new HttpError(400, 'Image file is required');
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const {type: mime} = validate(bytes, ['image']);
+  const ref = await putBytes('references', bytes, mime);
+  return {...ref, warning: ref.durable ? undefined : 'Saved to local disk (development only). Configure BLOB_READ_WRITE_TOKEN or S3_* for durable storage.'};
+});

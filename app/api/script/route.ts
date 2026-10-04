@@ -1,8 +1,28 @@
-import {NextResponse} from 'next/server';import {z} from 'zod';
-const C=z.object({id:z.string(),name:z.string(),role:z.string().optional(),appearance:z.string(),wardrobe:z.string().optional(),voice:z.string().optional(),personality:z.string().optional(),relationships:z.string().optional(),referenceImageUrl:z.string().url().optional()});
-const M=z.object({episodeNumber:z.number(),summary:z.string(),continuityNotes:z.string().optional()});
-const S=z.object({prompt:z.string().min(3),minutes:z.number().min(.5).max(20),mode:z.enum(['education','series']).default('education'),seriesTitle:z.string().optional(),episodeNumber:z.number().optional(),characters:z.array(C).default([]),episodeMemory:z.array(M).default([])});
-function sentences(t:string){return t.replace(/\s+/g,' ').split(/(?<=[.!?؟؛])\s+|\n+/).map(x=>x.trim()).filter(Boolean)}
-function chunks(p:string[],n:number){const o:string[]=[];const s=Math.max(1,Math.ceil(p.length/n));for(let i=0;i<p.length;i+=s)o.push(p.slice(i,i+s).join(' '));return o}
-function durations(total:number,count:number){const b=Math.max(10,Math.min(60,Math.round(total/count)));const v=Array.from({length:count},()=>b);let d=total-v.reduce((a,b)=>a+b,0),i=0;while(d&&i<10000){const k=i%count;if(d>0&&v[k]<60){v[k]++;d--}else if(d<0&&v[k]>10){v[k]--;d++}i++}return v}
-export async function POST(req:Request){try{const x=S.parse(await req.json()),total=Math.round(x.minutes*60),beats=chunks(sentences(x.prompt),Math.max(1,Math.round(total/30))),count=Math.max(1,Math.min(beats.length,Math.floor(total/10))),selected=beats.slice(0,count),timing=durations(total,count);const bible=x.characters.map(c=>[c.name,c.role,c.appearance,c.wardrobe,c.voice,c.personality,c.relationships].filter(Boolean).join(' | ')).join('\n');const memory=x.episodeMemory.slice(-5).map(m=>'Episode '+m.episodeNumber+': '+m.summary+(m.continuityNotes?' | '+m.continuityNotes:'')).join('\n');const scenes=selected.map((beat,i)=>{const rules=x.mode==='education'?'Preserve supplied educational meaning. Do not invent or change facts.':'Keep recurring characters identical in face, age, body, voice and established wardrobe. Never redesign them.';const prompt=[rules,bible&&'CHARACTER BIBLE:\n'+bible,memory&&'PREVIOUS EPISODES:\n'+memory,'STORY CONTEXT: '+x.prompt,'CURRENT SCENE: '+beat,i?'PREVIOUS SCENE: '+selected[i-1]:'','Cinematic composition, natural motion, clear action, no logos.'].filter(Boolean).join('\n');return{id:crypto.randomUUID(),title:(x.mode==='education'?'Learning Scene ':'Episode Scene ')+(i+1),sourceText:beat,referenceImageUrl:x.characters.find(c=>c.referenceImageUrl)?.referenceImageUrl,prompt,duration:timing[i],status:'planned' as const}});return NextResponse.json({id:crypto.randomUUID(),title:x.prompt.slice(0,55),prompt:x.prompt,mode:x.mode,seriesTitle:x.seriesTitle,episodeNumber:x.episodeNumber,characters:x.characters,episodeMemory:x.episodeMemory,minutes:x.minutes,totalSeconds:total,createdAt:new Date().toISOString(),scenes})}catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Planning failed'},{status:400})}}
+import {z} from 'zod';
+import {route, body} from '@/lib/server/http';
+import {plan} from '@/lib/server/director';
+import {attachShots} from '@/lib/prompts';
+import {maxShotSeconds} from '@/lib/server/config';
+import {detectLanguage} from '@/lib/planner';
+import {seriesContext} from '@/lib/server/series';
+import {Id} from '@/lib/server/http';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
+
+// Stateless storyboard preview. With seriesId the canonical Character Bible and previous-episode
+// memory are loaded server-side. Stored productions use /api/projects/:id/storyboard and
+// /api/episodes/:id/storyboard instead.
+const S = z.object({
+  prompt: z.string().trim().min(3).max(40000), minutes: z.number().min(0.5).max(30),
+  mode: z.enum(['education', 'series']).default('education'), seriesId: Id.optional(), episodeNumber: z.number().int().min(1).optional(),
+  aspectRatio: z.enum(['16:9', '9:16', '1:1']).default('16:9'),
+});
+export const POST = route(async (req: Request) => {
+  const x = await body(req, S);
+  const ctx = x.mode === 'series' && x.seriesId ? await seriesContext(x.seriesId, x.episodeNumber) : null;
+  const language = ctx?.series.language || detectLanguage(x.prompt);
+  const characters = ctx?.characters || [];
+  const board = await plan({mode: x.mode, text: x.prompt, minutes: x.minutes, language, characters, continuity: ctx?.continuity});
+  return attachShots(board, {mode: x.mode, aspectRatio: x.aspectRatio, characters, continuity: ctx?.continuity, style: ctx?.series.style, maxShotSeconds: maxShotSeconds()});
+});
