@@ -25,8 +25,15 @@ try:
     if not health.get("ok"): sys.exit("ERROR: worker health not OK")
     gpu=health.get("gpu") or {}
     if not gpu.get("available"): sys.exit("ERROR: no CUDA GPU detected")
+    if not (health.get('wan') or {}).get('ready'): sys.exit('ERROR: Wan runtime/weights are not ready')
+    if not health.get('tts'): sys.exit('ERROR: narration engine is not configured')
+    # /health is public. Verify the bearer token on an authenticated, read-only route.
+    try:
+        call('/jobs/00000000-0000-0000-0000-000000000000')
+    except urllib.error.HTTPError as e:
+        if e.code != 404: raise
     if not args.generate:
-        print("PASS: worker reachable, authenticated, CUDA available. Inference not submitted.")
+        print("PASS: worker reachable, authenticated, CUDA and Wan installation available, narration configured. Inference not submitted.")
         sys.exit(0)
     job=call("/generate",{"provider":"wan","prompt":"A calm cinematic aerial view of a futuristic coastal city at sunrise","duration":3})
     print("WAN JOB:",json.dumps(job,ensure_ascii=False))

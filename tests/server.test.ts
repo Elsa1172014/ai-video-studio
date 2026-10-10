@@ -75,6 +75,20 @@ describe('jobs', () => {
 });
 
 describe('gpu normalisation', () => {
+  it('does not report HTTP 200 as a ready Wan GPU', async () => {
+    vi.stubEnv('GPU_PROVIDER', 'vast'); vi.stubEnv('VIDEO_PROVIDER', 'wan');
+    vi.stubEnv('GPU_API_URL', 'https://worker.example'); vi.stubEnv('GPU_API_KEY', 'test-key');
+    const mock = vi.fn(); vi.stubGlobal('fetch', mock);
+    try {
+      const {health} = await import('@/lib/server/gpu');
+      mock.mockResolvedValueOnce(Response.json({ok: true, gpu: {available: false}}));
+      expect(await health()).toMatchObject({ok: false, message: expect.stringContaining('CUDA')});
+      mock.mockResolvedValueOnce(Response.json({ok: true, gpu: {available: true}, wan: {ready: false}}));
+      expect(await health()).toMatchObject({ok: false, message: expect.stringContaining('Wan')});
+      mock.mockResolvedValueOnce(Response.json({ok: true, gpu: {available: true}, wan: {ready: true}}));
+      expect(await health()).toMatchObject({ok: true});
+    } finally {vi.unstubAllGlobals(); vi.unstubAllEnvs();}
+  });
   it('normalises RunPod states', async () => {
     const {_test} = await import('@/lib/server/gpu');
     expect(_test.normalizeRunpod({id: 'a', status: 'IN_QUEUE'}).status).toBe('queued');

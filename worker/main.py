@@ -85,7 +85,8 @@ def start(kind,work,lock=None):
 
 @app.get("/health")
 def health():
- return {"ok":True,"version":app.version,"providers":list(ADAPTERS.keys()),"tts":bool(os.getenv("TTS_GENERATE_COMMAND")),"gpu":gpu_info(),"output_dir":str(OUTPUT_DIR),"job_dir":str(JOB_DIR)}
+ from readiness import wan_ready
+ return {"ok":True,"version":app.version,"providers":list(ADAPTERS.keys()),"tts":bool(os.getenv("TTS_GENERATE_COMMAND") or os.getenv("TTS_ENGINE")=="edge"),"gpu":gpu_info(),"wan":wan_ready(),"output_dir":str(OUTPUT_DIR),"job_dir":str(JOB_DIR)}
 
 @app.post("/generate")
 async def generate(req:Generate,authorization:Optional[str]=Header(None)):

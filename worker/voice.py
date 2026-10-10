@@ -20,10 +20,17 @@ class VoiceRequest(BaseModel):
 
 async def _tts(text:str,language:str,voice:str,out:Path):
  cmd=os.getenv("TTS_GENERATE_COMMAND")
- if not cmd:raise RuntimeError("Configure TTS_GENERATE_COMMAND on the GPU worker for your approved TTS engine")
+ if not cmd:
+  if os.getenv("TTS_ENGINE") == "edge":
+   from edge_voice import generate
+   return await generate(text,language,voice,out)
+  raise RuntimeError("Configure TTS_ENGINE=edge for preview narration or TTS_GENERATE_COMMAND for your approved TTS engine")
  # User text is passed through environment variables, never interpolated into the command.
  env={**os.environ,"TTS_TEXT":text,"TTS_LANGUAGE":language,"TTS_VOICE":voice,"TTS_OUTPUT":str(out)}
- p=await asyncio.create_subprocess_shell(cmd,env=env,stdout=asyncio.subprocess.DEVNULL,stderr=asyncio.subprocess.PIPE);_,err=await p.communicate()
+ p=await asyncio.create_subprocess_shell(cmd,env=env,stdout=asyncio.subprocess.DEVNULL,stderr=asyncio.subprocess.PIPE)
+ try: _,err=await asyncio.wait_for(p.communicate(),timeout=int(os.getenv("TTS_TIMEOUT_SECONDS","120")))
+ except (asyncio.CancelledError,TimeoutError):
+  p.kill();await p.wait();raise
  if p.returncode or not out.exists():raise RuntimeError(err.decode(errors="ignore")[-2000:] or "TTS failed")
 
 async def synthesize(x:VoiceRequest)->str:

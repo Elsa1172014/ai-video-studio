@@ -113,6 +113,11 @@ export async function health() {
   try {
     const url = mode === 'runpod' ? `${runpodBase()}/health` : `${legacyBase()}/health`;
     const r = await fetch(url, {headers: headers(false), cache: 'no-store', signal: AbortSignal.timeout(10_000)});
+    if (mode === 'legacy' && r.ok) {
+      const data = await r.json();
+      if (data.ok !== true || data.gpu?.available !== true) return {configured: true, ok: false, provider: mode, message: 'Worker reachable, but CUDA GPU is not ready.'};
+      if (process.env.VIDEO_PROVIDER === 'wan' && data.wan?.ready !== true) return {configured: true, ok: false, provider: mode, message: 'Worker reachable, but Wan runtime/weights are not ready.'};
+    }
     return {configured: true, ok: r.ok, provider: mode, httpStatus: r.status};
   } catch (e) {
     return {configured: true, ok: false, provider: mode, message: e instanceof Error ? e.message : 'unreachable'};

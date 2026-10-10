@@ -26,4 +26,4 @@ jobs:
           python-version: "3.11"
       - run: pip install -r worker/requirements.txt
       - run: PYTHONPATH=worker python -m unittest discover -s worker -p "test_*.py"
-      - run: bash -n scripts/setup-wan-vast.sh
+      - run: bash -n scripts/setup-wan-vast.sh scripts/start-wan-vast.sh
