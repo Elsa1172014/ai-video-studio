@@ -21,3 +21,7 @@ Use Claude's comprehensive application changes as the **primary platform baselin
 6. Open a new PR; leave `main` and Production unchanged until review.
 
 No live inference, GPU rental, or patch merge is claimed here.
+
+## Audit correction (2026-10-10)
+
+Direct inspection of the supplied 89-file patch confirms `worker/fetch.py` **does define** `out` before opening it; the earlier undefined-variable finding was incorrect. The security finding remains: `worker/main.py` accepts unauthenticated requests when `GPU_API_KEY` is unset. The patch includes 54 new files; a local syntax check passed for the one fully new Python file, but full application, typechecking, tests and GPU inference have not been completed. An independently verified `claude-vast-provider.patch` changes the Claude platform's actual `lib/server/gpu.ts` to explicitly select Vast.ai and require HTTPS for its worker URL. Apply only after the complete Claude patch, then test.
