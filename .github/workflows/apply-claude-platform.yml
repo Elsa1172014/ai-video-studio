@@ -7,5 +7,5 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9 # v4.2.2
+      - uses: actions/checkout@v4 # v4.2.2
       - run: test -f lib/server/gpu.ts && test -f worker/main.py && test -f components/EducationStudio.tsx && test -f components/SeriesStudio.tsx
