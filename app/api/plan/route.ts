@@ -1,1 +1,12 @@
-import {NextResponse} from 'next/server';import {z} from 'zod';const S=z.object({prompt:z.string().min(3),minutes:z.number().min(1).max(60).default(5)});export async function POST(req:Request){const x=S.parse(await req.json());const count=Math.max(3,Math.min(30,Math.ceil(x.minutes*2)));return NextResponse.json({title:x.prompt,minutes:x.minutes,scenes:Array.from({length:count},(_,i)=>({id:i+1,title:`Scene ${i+1}`,duration:Math.round(x.minutes*60/count),status:'planned'}))});}
+import {z} from 'zod';
+import {route, body} from '@/lib/server/http';
+import {planScenes} from '@/lib/planner';
+
+export const dynamic = 'force-dynamic';
+
+// Lightweight deterministic scene plan (kept for API compatibility).
+const S = z.object({prompt: z.string().trim().min(3).max(40000), minutes: z.number().min(0.5).max(30).default(5), mode: z.enum(['education', 'series']).default('education')});
+export const POST = route(async (req: Request) => {
+  const x = await body(req, S);
+  return {title: x.prompt.slice(0, 80), minutes: x.minutes, ...planScenes({mode: x.mode, text: x.prompt, minutes: x.minutes})};
+});

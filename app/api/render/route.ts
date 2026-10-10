@@ -1,2 +1,14 @@
-import {NextResponse} from 'next/server';import {submitRender} from '@/lib/generation';
-export async function POST(req:Request){try{const body=await req.json();const clips=Array.isArray(body.clips)?body.clips:[];if(!clips.length)return NextResponse.json({status:'failed',message:'No clips supplied'},{status:400});return NextResponse.json(await submitRender(clips))}catch(e){return NextResponse.json({status:'failed',message:e instanceof Error?e.message:'Render failed'},{status:500})}}
+import {z} from 'zod';
+import {route, body, HttpError} from '@/lib/server/http';
+import {createJob} from '@/lib/server/jobs';
+import {Id} from '@/lib/server/http';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 120;
+
+// Final render of a stored episode/project: all completed clips in order, with scene audio.
+const S = z.object({ownerKind: z.enum(['episode', 'project']), ownerId: Id, force: z.boolean().optional()});
+export const POST = route(async (req: Request) => {
+  const x = await body(req, S).catch(e => {throw e instanceof HttpError ? e : new HttpError(400, 'ownerKind and ownerId are required');});
+  return createJob(x.ownerKind, x.ownerId, {type: 'render', force: x.force});
+});

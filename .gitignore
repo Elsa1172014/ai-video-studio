@@ -5,3 +5,7 @@ node_modules
 worker/__pycache__
 worker/.venv
 worker/outputs
+.data
+*.tsbuildinfo
+next-env.d.ts
+__pycache__

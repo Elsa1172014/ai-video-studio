@@ -1,0 +1,29 @@
+name: Claude Platform Integration Validation
+on:
+  push:
+    branches: [feature/claude-complete-vast-integration]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: python -m compileall -q worker
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r worker/requirements.txt
+      - run: PYTHONPATH=worker python -m unittest discover -s worker -p "test_*.py"
+      - run: bash -n scripts/setup-wan-vast.sh scripts/start-wan-vast.sh
