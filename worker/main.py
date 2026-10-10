@@ -1,4 +1,4 @@
-import os,uuid,asyncio,json
+import os,uuid,asyncio,json,secrets
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI,Header,HTTPException
@@ -26,7 +26,7 @@ class Generate(BaseModel):
 
 def auth(v):
  key=os.getenv("GPU_API_KEY")
- if key and v!=f"Bearer {key}":raise HTTPException(401,"Invalid API key")
+ if not key or not v or not secrets.compare_digest(v,f"Bearer {key}"):raise HTTPException(401,"Invalid API key")
 
 def safe_job_id(job:str):
  try:return str(uuid.UUID(job))
