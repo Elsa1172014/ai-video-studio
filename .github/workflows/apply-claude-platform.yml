@@ -1,0 +1,25 @@
+name: Apply Complete Claude Platform
+on:
+  push:
+    branches: [feature/claude-complete-vast-integration]
+    paths:
+      - integration/claude-platform.patch
+      - .github/workflows/apply-claude-platform.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9 # v4.2.2
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - name: Verify and apply original Claude platform
+        run: |
+          git apply --check integration/claude-platform.patch
+          git apply integration/claude-platform.patch
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "feat: apply full Claude platform implementation"
+          git push origin HEAD:feature/claude-complete-vast-integration
