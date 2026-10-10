@@ -20,10 +20,13 @@ Free infrastructure prepared:
 - Created an empty Vercel Hobby Blob store ai-video-studio-preview-media in iad1. Preview-only connection is prepared but not submitted: browser security guidance requires action-time approval for its new persistent read-write credential. Existing app storage uses public asset URLs; anyone with those URLs can read them. Do not upload private/sensitive media under this configuration.
 - Confirmed GitHub link, Production main branch, Next.js preset, Node 24, Fluid Compute and active Vercel Authentication for Preview.
 - Authenticated Preview loaded. Before the new env deployment it showed GPU pending / Local data / Local media. Production /api/health returned HTTP 200 with GPU false/upstream 404; /api/providers returned HTTP 200 (adapter listings are not model readiness).
+- Preparation commit 98fc24bae15340848a105feca3010d75e4ad2103 deployed READY to Vercel Preview. The UI now reports Database. Created an Arabic test project through the browser, confirmed its row in Neon and restored it after reload. No inference was submitted.
+- Re-ran the full fixture E2E after the new changes: passed, including a 30-second 1280-wide MP4 with audio, failure/retry, Educational narration and Series continuity. Fixed the fixture runner's output origin (no duplicate /outputs suffix).
+- GitHub Actions validation for the implementation passed: https://github.com/Elsa1172014/ai-video-studio/actions/runs/38079576523
 
 Not verified:
 - Real Wan inference: payment is paused after card failure. The authorized test budget is USD 5 total. No GPU host rented, weights installed remotely or billable inference submitted.
-- Submit the prepared Preview-only Blob connection after required credential-access approval, deploy and verify PostgreSQL/Blob through real save/reload/upload flows. The Vercel project/env connector works when teamId is omitted; protected fetch still fails (403), so authenticated browser testing is the available path.
+- Submit the Preview-only Blob connection after required credential-access approval, deploy and verify media upload/storage. PostgreSQL save/reload is verified. The Vercel project/env connector works when teamId is omitted; protected fetch still fails (403), so authenticated browser testing is the available path.
 - After payment: rent the approved GPU, run setup/start, configure valid HTTPS, install the matching worker key and set the real Preview GPU_API_URL. No placeholder URL is inserted.
 - Real Wan MP4 playback/seeking/download, real worker restart/resume, narrated Educational production and two-episode Series continuity. Installation flags do not prove model loading/complete weights or inference quality.
 
