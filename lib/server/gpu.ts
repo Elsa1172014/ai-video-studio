@@ -7,8 +7,14 @@ export type GpuResult = {providerJobId?: string; status: GpuStatus; outputUrl?: 
 export class GpuNotConfigured extends Error {}
 
 export function gpuMode(): 'runpod' | 'legacy' | null {
+  if (process.env.GPU_PROVIDER === 'vast') {
+    if (!process.env.GPU_API_URL || !process.env.GPU_API_KEY) return null;
+    if (process.env.NODE_ENV === 'production' && !process.env.GPU_API_URL.startsWith('https://')) return null;
+    return 'legacy';
+  }
+  if (process.env.GPU_PROVIDER === 'runpod') return process.env.RUNPOD_ENDPOINT_ID && process.env.RUNPOD_API_KEY ? 'runpod' : null;
   if (process.env.RUNPOD_ENDPOINT_ID && process.env.RUNPOD_API_KEY) return 'runpod';
-  if (process.env.GPU_API_URL) return 'legacy';
+  if (process.env.GPU_API_URL && process.env.GPU_API_KEY) return 'legacy';
   return null;
 }
 export const GPU_MISSING = 'GPU is not configured. Set RUNPOD_ENDPOINT_ID and RUNPOD_API_KEY (RunPod Serverless), or GPU_API_URL (+ GPU_API_KEY) for the HTTP worker.';
