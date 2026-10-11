@@ -53,6 +53,9 @@ jobs:
             root@ssh8.vast.ai 'bash -s' <<'REMOTE'
           set -euo pipefail
           printf '%s\n' 'SSH connected to the approved Vast Preview instance.'
+          printf '%s\n' '--- VAST INSTANCE OPERATING GUIDE ---'
+          cat /etc/vast-agents-guide.md
+          printf '%s\n' '--- END OPERATING GUIDE ---'
           nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
           STUDIO_PY=python
           if [ -x /venv/main/bin/python ]; then STUDIO_PY=/venv/main/bin/python; fi
@@ -65,5 +68,18 @@ jobs:
           printf '%s\n' 'Listening TCP services:'
           ss -lnt
           if command -v supervisorctl >/dev/null; then supervisorctl status || true; fi
+          "$STUDIO_PY" - <<'PY'
+          from pathlib import Path
+          import re
+          for name in ('jupyter.log', 'tunnel_manager.log'):
+              path = Path('/var/log/portal') / name
+              if not path.exists():
+                  continue
+              print('Diagnostic log:', name)
+              for line in path.read_text(errors='replace').splitlines()[-35:]:
+                  line = re.sub(r'(?i)(token|password|secret|authorization|bearer|api[_-]?key)[^\n]*', '[credential redacted]', line)
+                  line = re.sub(r'[A-Za-z0-9_-]{40,}', '[long value redacted]', line)
+                  print(line)
+          PY
           REMOTE
           printf '%s\n' 'SSH and CUDA checks passed. No packages, weights or inference jobs were requested.' >> "$GITHUB_STEP_SUMMARY"
