@@ -108,5 +108,31 @@ jobs:
                       print(clean(log.read(5000).decode(errors='replace')))
               except (FileNotFoundError,PermissionError,OSError): pass
           PYREMOTE
+          if [ -x /venv/studio/bin/python ] && [ -f /workspace/.studio-worker.env ]; then
+            /venv/studio/bin/python - <<'PYAPI'
+          import json, urllib.request, urllib.error
+          from dotenv import dotenv_values
+          env=dotenv_values('/workspace/.studio-worker.env')
+          base=env['PUBLIC_OUTPUT_BASE_URL']; key=env['GPU_API_KEY']
+          cases=[
+              ('missing bearer', '/generate', {'provider':'wan','prompt':'Authentication test only','duration':1}, None, 401),
+              ('wrong bearer', '/generate', {'provider':'wan','prompt':'Authentication test only','duration':1}, 'invalid-test-key', 401),
+              ('unsupported provider', '/generate', {'provider':'unsupported','prompt':'Validation test only','duration':1}, key, 400),
+              ('invalid duration', '/generate', {'provider':'wan','prompt':'Validation test only','duration':0}, key, 422),
+              ('empty prompt', '/generate', {'provider':'wan','prompt':'','duration':1}, key, 422),
+              ('unknown job', '/jobs/00000000-0000-0000-0000-000000000000', None, key, 404),
+          ]
+          for label,path,payload,bearer,expected in cases:
+              headers={'Content-Type':'application/json'}
+              if bearer: headers['Authorization']='Bearer '+bearer
+              req=urllib.request.Request(base+path,data=json.dumps(payload).encode() if payload is not None else None,headers=headers)
+              try:
+                  with urllib.request.urlopen(req,timeout=15) as response: status=response.status
+              except urllib.error.HTTPError as e: status=e.code
+              assert status==expected, (label,status,expected)
+              print('HTTPS error handling PASS:',label,status)
+          print('Six rejection checks passed. No generation job was accepted.')
+          PYAPI
+          fi
           REMOTE
           printf '%s\n' 'SSH and CUDA passed; host-only transport key prepared. No inference requested.' >> "$GITHUB_STEP_SUMMARY"
