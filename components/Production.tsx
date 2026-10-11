@@ -4,6 +4,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import type {Job, OwnerKind, ProductionView, Scene} from '@/lib/types';
 import {api, errorText, playable} from '@/lib/client';
+import {getDownloadUrl} from '@vercel/blob';
 
 const ACTIVE = (j?: Job) => !!j && (j.status === 'queued' || j.status === 'processing');
 const latest = (jobs: Job[], f: (j: Job) => boolean) => jobs.filter(f).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
@@ -165,6 +166,7 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
       {finalUrl && <>
         <video className="mt-3 w-full rounded-xl" controls preload="metadata" src={finalUrl}/>
         <a className="btn ghost mt-3 inline-block" href={finalUrl} target="_blank" rel="noreferrer">Open final MP4 ↗</a>
+        <a className="btn primary ml-3 mt-3 inline-block" href={getDownloadUrl(finalUrl)} download="ai-video-studio.mp4">Download MP4</a>
         {final?.output && !final.output.durable && <p className="mt-2 text-xs text-amber-300">Stored on the GPU worker / local disk only. Configure durable storage to keep it permanently.</p>}
       </>}
     </div>
