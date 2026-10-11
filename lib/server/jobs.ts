@@ -151,8 +151,14 @@ export async function refreshJob(id: string): Promise<Job> {
   }
   let r: gpu.GpuResult;
   try {r = await gpu.status(job.providerJobId);}
-  catch (e) {return {...job, error: e instanceof Error ? e.message : 'Status check failed'};} // transient: keep polling
-  if (r.status === job.status && !r.outputUrl) return job;
+  catch (e) {
+    // Keep the active job, but persist the outage so refreshes do not hide it.
+    return db.put('job', job.id, job.ownerId, {...job, error: e instanceof Error ? e.message : 'Status check failed', updatedAt: now()});
+  }
+  if (r.status === job.status && !r.outputUrl) {
+    if (job.error) return db.put('job', job.id, job.ownerId, {...job, error: undefined, updatedAt: now()});
+    return job;
+  }
   if (r.status === 'completed' && r.outputUrl) job = await finish(job, r.outputUrl);
   else job = {...job, status: r.status, error: r.status === 'failed' ? r.message || 'Generation failed' : undefined, updatedAt: now()};
   return db.put('job', job.id, job.ownerId, job);

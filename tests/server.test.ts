@@ -51,6 +51,28 @@ describe('series persistence and character lock', () => {
 });
 
 describe('jobs', () => {
+  it('persists a temporary provider outage and clears it after recovery', async () => {
+    vi.stubEnv('GPU_PROVIDER', 'vast'); vi.stubEnv('VIDEO_PROVIDER', 'wan');
+    vi.stubEnv('GPU_API_URL', 'https://worker.example'); vi.stubEnv('GPU_API_KEY', 'test-key');
+    const mock = vi.fn()
+      .mockResolvedValueOnce(Response.json({jobId: 'provider-job', status: 'processing'}))
+      .mockRejectedValueOnce(new Error('Connection lost'))
+      .mockResolvedValueOnce(Response.json({jobId: 'provider-job', status: 'processing'}));
+    vi.stubGlobal('fetch', mock);
+    try {
+      const P = await import('@/lib/server/projects');
+      const J = await import('@/lib/server/jobs');
+      const p = await P.createProject({title: 'Recovery', sourceText: 'The sun shines over the sea.', minutes: 0.5});
+      const built = await P.buildProjectStoryboard(p.id);
+      const scene = built.storyboard!.scenes[0];
+      const {job} = await J.createJob('project', p.id, {type: 'video', sceneId: scene.id, shotId: scene.shots[0].id});
+      expect(await J.refreshJob(job.id)).toMatchObject({status: 'processing', error: expect.stringContaining('Connection lost')});
+      expect((await J.getJob(job.id)).error).toContain('Connection lost');
+      expect(await J.refreshJob(job.id)).toMatchObject({status: 'processing', error: undefined});
+      expect((await J.getJob(job.id)).error).toBeUndefined();
+      expect(mock).toHaveBeenCalledTimes(3);
+    } finally {vi.unstubAllGlobals(); vi.unstubAllEnvs();}
+  });
   it('fails clearly when no GPU is configured and maps voices per speaker', async () => {
     const P = await import('@/lib/server/projects');
     const J = await import('@/lib/server/jobs');

@@ -150,7 +150,7 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
               </span>}
             </div>
           </div>
-          {[...s.shots.map(sh => shotJob(sh.id)), a].filter(j => j?.error && j.status === 'failed').map(j => <p key={j!.id} className="mt-2 text-xs text-red-300">{j!.error}</p>)}
+          {[...s.shots.map(sh => shotJob(sh.id)), a].filter(j => j?.error && (j.status === 'failed' || ACTIVE(j))).map(j => <p key={j!.id} className={'mt-2 text-xs ' + (ACTIVE(j) ? 'text-amber-300' : 'text-red-300')}>{ACTIVE(j) ? 'Status temporarily unavailable; retrying: ' : ''}{j!.error}</p>)}
           <div className="mt-2 flex gap-2 overflow-x-auto">
             {s.shots.map(sh => {const u = playable(shotJob(sh.id)?.output?.url); return u ? <video key={sh.id} src={u} className="h-24 rounded-lg" controls preload="metadata"/> : null;})}
             {a?.status === 'completed' && a.output?.url && <audio src={a.output.url} controls className="h-10 self-center"/>}
