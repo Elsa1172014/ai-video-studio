@@ -91,5 +91,5 @@ else: raise RuntimeError('Wan worker readiness failed')
 PY
 source /workspace/.studio-worker.env
 export GPU_API_URL=$PUBLIC_OUTPUT_BASE_URL
-python scripts/gpu-smoke-test.py
+python "$STUDIO_REPO/scripts/gpu-smoke-test.py"
 printf '%s\n' 'Authenticated HTTPS Preview smoke test passed. Quick tunnel changes on restart; not a Production address.'
