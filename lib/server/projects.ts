@@ -50,7 +50,7 @@ export async function buildProjectStoryboard(id: string) {
   if (active) throw new HttpError(409, 'أوقف الإنتاج الجاري قبل إعادة بناء المشاهد.');
   const seconds = p.durationSeconds ?? Math.round(p.minutes * 60);
   const input = {mode: 'education' as const, text: p.sourceText, minutes: seconds / 60, language: p.language, characters: p.direction?.characters || [], title: p.title};
-  const board = p.direction?.beats.length ? directedBoard(p.direction, seconds) : (p.durationMode ?? 'fit') === 'fit' ? planTimedScenes(input, seconds) : await plan(input);
+  const board = p.direction?.beats.length ? (()=>{try{return directedBoard(p.direction,seconds);}catch(e){throw new HttpError(422,(e as Error).message);}})() : (p.durationMode ?? 'fit') === 'fit' ? planTimedScenes(input, seconds) : await plan(input);
   const storyboard = attachShots(board, {mode: 'education', aspectRatio: p.aspectRatio, style: p.direction ? [p.direction.format,p.direction.style,p.direction.execution].join('. ') : undefined, characters: p.direction?.characters || [], maxShotSeconds: maxShotSeconds()});
   return db.put('project', id, '', {...p, storyboard, updatedAt: now()});
 }

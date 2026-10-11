@@ -85,14 +85,14 @@ export default function EducationStudio() {
       <h1 className="mt-2 text-3xl font-bold">ألصق نص الدرس ليحوّله الاستوديو إلى مشاهد تعليمية.</h1>
       {!durable && <p className="mt-2 text-xs text-amber-300">الحفظ الحالي محلي ومؤقت؛ يلزم تفعيل قاعدة البيانات للحفظ الدائم.</p>}
       <input dir="auto" value={title} onChange={e => setTitle(e.target.value)} className="field mt-5" placeholder="عنوان الدرس"/>
-      <textarea dir="auto" value={source} onChange={e => {setSource(e.target.value); setDirection(undefined);}} className="field mt-4 min-h-48" placeholder="ألصق النص التعليمي كاملًا هنا. يبقى النص الأصلي محفوظًا. عند الالتزام بالوقت، تُختار منه مقتطفات تناسب المدة وتُعرض للمراجعة."/>
+      <textarea dir="auto" value={source} onChange={e => {setSource(e.target.value); setDirection(undefined);}} className="field mt-4 min-h-48" placeholder="ألصق النص التعليمي كاملًا هنا. يبقى النص الأصلي محفوظًا. ستظهر أفكار المشاهد وطريقة عرضها لتراجعها وتعدلها."/>
       <div className="mt-4 flex flex-wrap gap-3">
         <label className="text-sm">مدة الفيديو بالثواني
           <input aria-label="مدة الفيديو بالثواني" type="number" min={5} max={1800} step={1} value={seconds} onChange={e => setSeconds(Number(e.target.value))} className="field mt-1 w-36"/>
         </label>
         <label className="text-sm">التعامل مع النص الطويل
           <select aria-label="التعامل مع النص الطويل" value={durationMode} onChange={e => setDurationMode(e.target.value as 'fit' | 'full')} className="field mt-1">
-            <option value="fit">الالتزام بالوقت — اختيار مقتطفات عند الحاجة</option>
+            <option value="fit">الالتزام بالوقت — مراجعة اختصار الأفكار والأدلة</option>
             <option value="full">النص كاملًا — قد تزيد المدة</option>
           </select>
         </label>
@@ -101,9 +101,9 @@ export default function EducationStudio() {
         <button onClick={() => run('جارٍ الحفظ…', async () => {await save();})} disabled={!!busy || source.trim().length < 3 || !Number.isInteger(seconds) || seconds < 5 || seconds > 1800} className="btn ghost disabled:opacity-40">{project ? 'حفظ التعديلات' : 'حفظ المشروع'}</button>
         <button onClick={build} disabled={!!busy || source.trim().length < 3 || !Number.isInteger(seconds) || seconds < 5 || seconds > 1800} className="btn primary disabled:opacity-40">{busy || (project?.storyboard ? 'إعادة بناء مخطط المشاهد' : 'إنشاء مخطط المشاهد التعليمية')}</button>
       </div>
-      <p className="mt-3 text-xs text-slate-400">المدة المطلوبة: {seconds || 0} ثانية. {durationMode === 'fit' ? 'تتوزع المشاهد على هذه المدة بالضبط. راجع مقتطفات التعليق الصوتي قبل الإنتاج.' : 'سيُروى النص كاملًا؛ قد يتجاوز الفيديو المدة المطلوبة.'}</p>
+      <p className="mt-3 text-xs text-slate-400">المدة المطلوبة: {seconds || 0} ثانية. {durationMode === 'fit' ? 'تتوزع المشاهد على هذه المدة بالضبط. راجع اختصار الأفكار والأدلة قبل الإنتاج.' : 'سيُروى النص كاملًا؛ قد يتجاوز الفيديو المدة المطلوبة.'}</p>
       {direction && <CreativeDirector value={direction} onChange={setDirection} seconds={seconds}/>}
-      {project?.storyboard && changed && <p className="mt-2 text-xs text-amber-300">عدّلت نص الدرس؛ أعد بناء مخطط المشاهد لتطبيق التعديلات.</p>}
+      {project?.storyboard && changed && <p className="mt-2 text-xs text-amber-300">عدّلت إعدادات المشروع أو نصه؛ أعد بناء مخطط المشاهد لتطبيق التعديلات.</p>}
       {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
     </div>
     {project?.storyboard && <>
