@@ -108,6 +108,8 @@ export type Episode = {
 };
 
 export type EducationProject = {
+  durationSeconds?: number;
+  durationMode?: 'fit' | 'full';
   id: string;
   title: string;
   sourceText: string;
@@ -121,7 +123,7 @@ export type EducationProject = {
 };
 
 export type OwnerKind = 'episode' | 'project';
-export type JobType = 'video' | 'audio' | 'render';
+export type JobType = 'video' | 'audio' | 'render' | 'production';
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 export type Job = {
@@ -134,6 +136,7 @@ export type Job = {
   type: JobType;
   provider: string;
   providerJobId?: string;
+  progress?: string;
   status: JobStatus;
   attempts: number;
   error?: string;

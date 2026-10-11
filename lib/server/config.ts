@@ -8,8 +8,8 @@ export const videoProvider = () => process.env.VIDEO_PROVIDER || 'ltx';
 export const ttsProvider = () => process.env.TTS_PROVIDER || 'tts';
 export const defaultVoice = () => process.env.DEFAULT_VOICE_ID || 'default';
 
-export const jobTimeoutMs = (type: 'video' | 'audio' | 'render') =>
-  num(process.env[`JOB_TIMEOUT_${type.toUpperCase()}_MINUTES`], type === 'audio' ? 10 : 30) * 60_000;
+export const jobTimeoutMs = (type: 'video' | 'audio' | 'render' | 'production') =>
+  num(process.env[`JOB_TIMEOUT_${type.toUpperCase()}_MINUTES`], type === 'production' ? 720 : type === 'audio' ? 10 : 30) * 60_000;
 
 /** Generation size per aspect ratio (multiples of 32 for LTX) and final render size. */
 export function frame(aspect: AspectRatio) {

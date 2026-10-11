@@ -16,6 +16,10 @@ async def handle(payload):
   return {"status":"completed","outputUrl":await synthesize(VoiceRequest(**{k:v for k,v in payload.items() if k!="action"}))}
  if action=="render":
   return {"status":"completed","outputUrl":await render(RenderRequest(**{k:v for k,v in payload.items() if k!="action"}))}
+ if action=="produce":
+  from production import ProductionRequest,produce
+  result=await produce(ProductionRequest(**{k:v for k,v in payload.items() if k!="action"}),lambda message:None,asyncio.Semaphore(1))
+  return {"status":"completed","outputUrl":result}
  if action=="health":
   return {"ok":True,"providers":list(ADAPTERS.keys())}
  raise RuntimeError(f"Unknown action: {action}")

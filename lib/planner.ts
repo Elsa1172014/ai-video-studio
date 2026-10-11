@@ -137,3 +137,47 @@ export function planScenes(x: PlanInput): Omit<Storyboard, 'createdAt'> {
 
 export const _test = {units};
 export type {Shot};
+
+/** Fixed-length educational cut. The original source is never modified. */
+export function planTimedScenes(x: PlanInput, seconds: number): Omit<Storyboard, 'createdAt'> {
+  const total = Math.round(seconds);
+  if (!Number.isFinite(total) || total < 5 || total > 1800) throw new Error('اختر مدة من 5 إلى 1800 ثانية.');
+  const lang = x.language || detectLanguage(x.text);
+  // Leave room for pauses. Actual voice duration is checked again by the worker.
+  const budget = Math.max(3, Math.floor(total * (lang === 'ar' ? 1.6 : 2.0)));
+  const original = x.text.trim();
+  let excerpts = original.split(/(?<=[.!?؟؛…])\s+|\n+/).map(s => s.trim()).filter(Boolean);
+  let condensed = words(original) > budget;
+  if (condensed) {
+    const candidates = excerpts.flatMap(s => words(s) > budget ? s.split(/(?<=[،,؛;])\s+/).filter(Boolean) : [s]);
+    const tokens = (s: string) => s.toLowerCase().replace(/[ًٌٍَُِّْـ]/g, '').match(/[\p{L}\p{N}]{3,}/gu) || [];
+    const freq = new Map<string, number>();
+    candidates.forEach(s => new Set(tokens(s)).forEach(t => freq.set(t, (freq.get(t) || 0) + 1)));
+    const ranked = candidates.map((text, index) => ({text, index, cost: words(text), score:
+      tokens(text).reduce((n, t) => n + Math.min(freq.get(t) || 0, 8), 0) / Math.max(1, words(text))
+      + (/[0-9٠-٩]/.test(text) ? 0.4 : 0) + (index === 0 ? 0.3 : 0)
+    })).filter(c => c.cost <= budget).sort((a, b) => b.score - a.score || a.index - b.index);
+    let left = budget;
+    const picked: typeof ranked = [];
+    for (const c of ranked) if (c.cost <= left) {picked.push(c); left -= c.cost;}
+    excerpts = picked.sort((a, b) => a.index - b.index).map(c => c.text);
+    if (!excerpts.length) throw new Error('النص جملة طويلة لا تناسب المدة. أضف علامات ترقيم أو اختصر النص ثم أعد بناء المشاهد.');
+  }
+  const script = excerpts.join(' ');
+  const allWords = script.split(/\s+/).filter(Boolean);
+  // 20-second scenes, exactly filling the producer's selected duration.
+  const count = Math.max(1, Math.ceil(total / 20));
+  const durations = splitShots(total, Math.ceil(total / count));
+  const scenes: Scene[] = durations.map((duration, index) => {
+    const from = Math.round(index * allWords.length / durations.length);
+    const to = Math.round((index + 1) * allWords.length / durations.length);
+    const narration = allWords.slice(from, to).join(' ');
+    const visual = narration || script;
+    return {id: crypto.randomUUID(), index, title: narration ? titleFrom(narration) : 'متابعة بصرية',
+      phase: 'teaching beat', sourceText: narration, narration, dialogue: [], visual,
+      characterIds: [], duration, shots: []};
+  });
+  return {planner: 'deterministic', totalSeconds: total,
+    narrationSeconds: Math.round(speechSeconds(script, lang)),
+    warnings: condensed ? ['اختيرت مقتطفات من النص لتناسب المدة المحددة دون إضافة معلومات. النص الأصلي محفوظ؛ راجع التعليق الصوتي في المشاهد قبل الإنتاج.'] : [], scenes};
+}

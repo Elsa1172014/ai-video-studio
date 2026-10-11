@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {detectLanguage, fitDurations, planScenes, splitShots} from '@/lib/planner';
+import {detectLanguage, fitDurations, planScenes, planTimedScenes, splitShots} from '@/lib/planner';
 import {attachShots, continuityDigest} from '@/lib/prompts';
 import type {Character, Episode} from '@/lib/types';
 
@@ -85,5 +85,18 @@ describe('prompts', () => {
     expect(d).toContain('end 5');
     expect(d).toContain('state 5');
     expect(d).toContain('thread 1');
+  });
+});
+
+
+describe('producer-controlled duration', () => {
+  it.each([5, 17, 45, 60, 90, 123, 1800])('fits scenes and shots to exactly %i seconds', seconds => {
+    const text = (lesson + '\nالماء مهم للحياة.').repeat(10);
+    const board = attachShots(planTimedScenes({mode: 'education', text, minutes: seconds / 60}, seconds), {mode: 'education', aspectRatio: '16:9', characters: [], maxShotSeconds: 5});
+    expect(board.totalSeconds).toBe(seconds);
+    expect(board.scenes.reduce((n, s) => n + s.duration, 0)).toBe(seconds);
+    expect(board.scenes.flatMap(s => s.shots).reduce((n, s) => n + s.duration, 0)).toBe(seconds);
+    expect(board.scenes.flatMap(s => s.shots).every(s => s.duration > 0 && s.duration <= 5)).toBe(true);
+    expect(board.scenes.map(s => s.narration).join(' ').trim().split(/\s+/).length).toBeLessThanOrEqual(Math.floor(seconds * 1.6));
   });
 });

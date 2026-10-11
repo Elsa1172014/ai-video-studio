@@ -35,6 +35,8 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
   const doneClips = shots.filter(x => shotJob(x.shot.id)?.status === 'completed').length;
   const allClips = shots.length > 0 && doneClips === shots.length;
   const final = view?.final;
+  const batch = final?.type === 'production';
+  const queueId = id + ':' + scenes.map(s => s.id).join(',');
 
   const load = useCallback(async () => {
     const v = await api<ProductionView>(`/api/productions/${kind}/${id}`);
@@ -45,11 +47,11 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
   // restore + persist the auto-run queue (per viewer convenience; job state itself is server-side)
   useEffect(() => {
     alive.current = true;
-    try {const a = JSON.parse(localStorage.getItem(autoKey(id)) || 'null'); if (a) setAuto(a);} catch {}
+    try {const a = JSON.parse(localStorage.getItem(autoKey(queueId)) || 'null'); if (a) setAuto(a);} catch {}
     load().catch(e => setError(errorText(e)));
     return () => {alive.current = false;};
-  }, [id, load]);
-  useEffect(() => {try {localStorage.setItem(autoKey(id), JSON.stringify(auto));} catch {}}, [auto, id]);
+  }, [queueId, load]);
+  useEffect(() => {try {localStorage.setItem(autoKey(queueId), JSON.stringify(auto));} catch {}}, [auto, queueId]);
 
   // poll active jobs (the server checks the provider and persists results)
   useEffect(() => {
@@ -76,7 +78,7 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
 
   // queue runner: one video shot and one voice track in flight at a time, then the final render
   useEffect(() => {
-    if (!view || submitting.current) return;
+    if (!view || submitting.current || batch) return;
     const step = async () => {
       if (auto.video && !jobs.some(j => j.type === 'video' && ACTIVE(j))) {
         const next = shots.find(x => !shotJob(x.shot.id));
@@ -104,10 +106,10 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
     setError('');
     try {await fn(); await load();} catch (e) {setError(errorText(e));}
   }
-  const produceAll = () => {setError(''); setAuto({video: true, audio: true, render: true});};
+  const produceAll = () => {setAuto({video: false, audio: false, render: false}); return act(() => submit({type: 'production'}));};
   const stopAll = () => setAuto({video: false, audio: false, render: false});
   const running = auto.video || auto.audio || auto.render || jobs.some(ACTIVE);
-  const pct = shots.length ? Math.round((doneClips / shots.length) * 100) : 0;
+  const pct = batch ? (final?.status === 'completed' ? 100 : 0) : shots.length ? Math.round((doneClips / shots.length) * 100) : 0;
   const finalUrl = final?.status === 'completed' ? playable(final.output?.url) : undefined;
 
   return <div className="card mt-5 p-5">
@@ -115,20 +117,22 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
       <div>
         <p className="text-xs text-purple-400">الإنتاج الكامل · يُحفظ تقدمك تلقائيًا</p>
         <h2 className="font-bold">توليد المشاهد والصوت وإخراج الفيديو</h2>
-        <p className="mt-1 text-xs text-slate-400">{arabicCount(scenes.length, 'scene')} · {arabicCount(shots.length, 'shot')} · اللقطات الجاهزة: {doneClips} من {shots.length} · الحالة: {arabicLabel(view?.status)}</p>
+        <p className="mt-1 text-xs text-slate-400">{arabicCount(scenes.length, 'scene')} · {arabicCount(shots.length, 'shot')} {!batch && <>· اللقطات الجاهزة: {doneClips} من {shots.length}</>} · الحالة: {arabicLabel(view?.status)}</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        {running ? <button onClick={stopAll} className="btn ghost">إيقاف قائمة الانتظار مؤقتًا</button>
-          : !(allClips && final?.status === 'completed') && <button onClick={produceAll} disabled={!shots.length} className="btn primary disabled:opacity-40">{doneClips ? 'استكمال الإنتاج' : 'إنتاج الفيديو كاملًا'}</button>}
-        <button onClick={() => act(() => submit({type: 'render', force: final?.status === 'completed'}))} disabled={!allClips || jobs.some(ACTIVE)} className="btn ghost disabled:opacity-40">{final?.status === 'completed' ? 'إعادة إخراج الفيديو' : 'إخراج الفيديو النهائي'}</button>
+        {running ? <button onClick={() => {stopAll(); if (final?.type === 'production' && ACTIVE(final)) act(() => api(`/api/jobs/${final.id}/cancel`, {method: 'POST'}));}} className="btn ghost">{final?.type === 'production' ? 'إيقاف الإنتاج' : 'إيقاف قائمة الانتظار مؤقتًا'}</button>
+          : final?.status !== 'completed' && <button onClick={produceAll} disabled={!shots.length} className="btn primary disabled:opacity-40">{doneClips ? 'استكمال الإنتاج' : 'إنتاج الفيديو كاملًا'}</button>}
+        {!batch && <button onClick={() => act(() => submit({type: 'render', force: final?.status === 'completed'}))} disabled={!allClips || jobs.some(ACTIVE)} className="btn ghost disabled:opacity-40">{final?.status === 'completed' ? 'إعادة إخراج الفيديو' : 'إخراج الفيديو النهائي'}</button>}
       </div>
     </div>
     <div className="mt-4 h-2 overflow-hidden rounded bg-white/10"><div className="h-full bg-purple-500 transition-all" style={{width: pct + '%'}}/></div>
     {error && <div className="mt-4 rounded-xl border border-red-500/30 p-3 text-sm text-red-300">{error}</div>}
+    <p className="mt-2 text-xs text-slate-400">إنتاج الفيديو الكامل يستمر على الخادم بعد إغلاق الصفحة. توليد اللقطات قد يستغرق وقتًا طويلًا؛ مدة الفيديو ليست مدة الانتظار.</p>
+    {final?.progress && ACTIVE(final) && <p role="status" className="mt-3 text-sm text-purple-200">{arabicNotice(final.progress)}</p>}
     {notes.map(n => <p key={n} className="mt-2 text-xs text-amber-300">{arabicNotice(n)}</p>)}
 
     <div className="mt-4 space-y-2">
-      {scenes.map(s => {
+      {!batch && scenes.map(s => {
         const a = audioJob(s.id);
         return <div key={s.id} className="rounded-xl border border-white/10 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -163,7 +167,7 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
     <div className="mt-5 rounded-xl border border-white/10 p-4">
       <div className="flex items-center justify-between"><b>الفيديو النهائي</b><Chip job={final} label="الإخراج"/></div>
       {final?.status === 'failed' && <p className="mt-2 text-sm text-red-300">{arabicNotice(final.error)} <button className="text-purple-300" onClick={() => act(() => api(`/api/jobs/${final.id}/retry`, {method: 'POST'}))}>إعادة محاولة الإخراج</button></p>}
-      {!allClips && <p className="mt-2 text-xs text-slate-500">يتاح الإخراج النهائي بعد اكتمال جميع اللقطات. المشاهد التي لم يكتمل صوتها ستُنتج بلا صوت.</p>}
+      {!allClips && final?.type !== 'production' && <p className="mt-2 text-xs text-slate-500">يتاح الإخراج النهائي بعد اكتمال جميع اللقطات. يجب اكتمال التعليق الصوتي أيضًا؛ لن يُنتج فيديو ناقص الصوت.</p>}
       {finalUrl && <>
         <video className="mt-3 w-full rounded-xl" controls preload="metadata" src={finalUrl}/>
         <a className="btn ghost mt-3 inline-block" href={finalUrl} target="_blank" rel="noreferrer">فتح الفيديو النهائي ↗</a>

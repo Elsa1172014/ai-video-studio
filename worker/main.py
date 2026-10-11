@@ -10,8 +10,9 @@ from fastapi import UploadFile,File
 from media import save_upload
 from render import RenderRequest,render
 from voice import VoiceRequest,synthesize
+from production import ProductionRequest
 
-app=FastAPI(title="AI Video Studio GPU Worker",version="0.4.0")
+app=FastAPI(title="AI Video Studio GPU Worker",version="0.5.0")
 app.mount("/outputs",StaticFiles(directory=str(OUTPUT_DIR)),name="outputs")
 JOB_DIR=Path(os.getenv("JOB_DIR",str(OUTPUT_DIR/"jobs"))).expanduser().resolve()
 JOB_DIR.mkdir(parents=True,exist_ok=True)
@@ -61,18 +62,20 @@ def gpu_info():
  except Exception as e:info["diagnostic_error"]=str(e)
  return info
 
-def start(kind,work,lock=None):
+def start(kind,work,lock=None,with_progress=False):
  job=str(uuid.uuid4())
  JOBS[job]={"jobId":job,"kind":kind,"status":"queued"};save_job(job)
+ def progress(message):
+  JOBS[job]["message"]=message;save_job(job)
  async def runner():
   try:
    if lock:
     async with lock:
      JOBS[job]["status"]="processing";save_job(job)
-     url=await work()
+     url=await work(progress) if with_progress else await work()
    else:
     JOBS[job]["status"]="processing";save_job(job)
-    url=await work()
+    url=await work(progress) if with_progress else await work()
    JOBS[job].update(status="completed",outputUrl=url,message="Done")
   except asyncio.CancelledError:
    JOBS[job].update(status="cancelled",message="Cancelled")
@@ -120,3 +123,9 @@ def cancel(job:str,authorization:Optional[str]=Header(None)):
 @app.post("/media")
 async def media(file:UploadFile=File(...),authorization:Optional[str]=Header(None)):
  auth(authorization);return await save_upload(file)
+
+@app.post("/produce")
+async def full_production(req: ProductionRequest, authorization:Optional[str]=Header(None)):
+ from production import produce
+ auth(authorization)
+ return start("production",lambda progress:produce(req,progress,GPU_LOCK),with_progress=True)

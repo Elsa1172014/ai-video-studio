@@ -5,7 +5,7 @@ import {Id} from './http';
 const text = (max: number) => z.string().trim().max(max);
 export const Aspect = z.enum(['16:9', '9:16', '1:1']);
 export const Lang = z.enum(['ar', 'en']);
-export const Minutes = z.number().min(0.5).max(30);
+export const Minutes = z.number().min(5 / 60).max(30);
 
 export const Voice = z.object({provider: text(40).min(1), voiceId: text(120).min(1), speakingStyle: text(300).optional()});
 // Durable media URL, or a /api/files/ path from the local dev store.
@@ -29,6 +29,8 @@ export const EpisodeIn = z.object({title: text(160).min(1), goal: text(40000).mi
 export const EpisodePatch = EpisodeIn.omit({number: true}).partial();
 
 export const ProjectIn = z.object({
+  durationSeconds: z.number().int().min(5).max(1800).optional(),
+  durationMode: z.enum(['fit', 'full']).optional(),
   title: text(160).min(1), sourceText: text(60000).min(3), minutes: Minutes.optional(),
   language: Lang.optional(), aspectRatio: Aspect.optional(), narratorVoice: Voice.optional(),
 });
@@ -49,6 +51,6 @@ export const Memory = z.object({
 });
 
 export const JobIn = z.object({
-  ownerKind: z.enum(['episode', 'project']), ownerId: Id, type: z.enum(['video', 'audio', 'render']),
+  ownerKind: z.enum(['episode', 'project']), ownerId: Id, type: z.enum(['video', 'audio', 'render', 'production']),
   sceneId: Id.optional(), shotId: Id.optional(), force: z.boolean().optional(),
 });

@@ -28,6 +28,7 @@ export async function editScene(kind: OwnerKind, id: string, sceneId: string, pa
   const scenes = p.storyboard?.scenes;
   const i = scenes?.findIndex(s => s.id === sceneId) ?? -1;
   if (!scenes || i < 0) throw notFound('Scene');
+  if ((p.durationMode ?? 'fit') === 'fit' && patch.duration !== undefined && patch.duration !== scenes[i].duration) throw new HttpError(400, 'عدّل مدة الفيديو بالثواني ثم أعد بناء المشاهد لتوزيع الوقت تلقائيًا.');
   const merged: Scene = {...scenes[i], ...patch, dialogue: [], id: crypto.randomUUID()};
   const next = finishScene(merged, scenes[i - 1], scenes.length, {mode: 'education', aspectRatio: p.aspectRatio, characters: [], maxShotSeconds: maxShotSeconds()});
   const updated = scenes.map((s, k) => (k === i ? next : s));

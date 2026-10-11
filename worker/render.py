@@ -6,10 +6,11 @@ from storage import OUTPUT_DIR,public_url
 class RenderScene(BaseModel):
  clips:list[str]=Field(min_length=1)
  audio:str|None=None
- duration:float|None=None
+ duration:float|None=Field(default=None,gt=0,le=1800)
  sceneId:str|None=None
 
 class RenderRequest(BaseModel):
+ strictDuration:bool=False
  scenes:list[RenderScene]=[]
  clips:list[str]=[]  # legacy: plain ordered clip list, no audio
  width:int=Field(default=1280,ge=64,le=3840)
@@ -66,13 +67,19 @@ async def render(x:RenderRequest)->str:
    vdur=await duration(joined)
    if scene.audio:
     audio=fetch_media(scene.audio,work,'.wav')
-    total=max(vdur,await duration(audio));extra=total-vdur
+    adur=await duration(audio)
+    total=scene.duration if x.strictDuration and scene.duration else max(vdur,adur)
+    speed=max(1.0,adur/total)
+    if x.strictDuration and speed>1.25:raise RuntimeError('التعليق الصوتي أطول من مدة المشهد. اختصر نص المشهد أو زد مدته ثم أعد الإنتاج.')
+    extra=max(0,total-vdur)
+    tempo=f'atempo={speed:.8f},' if x.strictDuration and speed>1 else '' 
     await run([ff,'-y','-i',str(joined),'-i',str(audio),'-filter_complex',
-     f'[0:v]tpad=stop_mode=clone:stop_duration={extra:.3f}[v];[1:a]aresample=48000,apad=whole_dur={total:.3f}[a]',
+     f'[0:v]tpad=stop_mode=clone:stop_duration={extra:.3f}[v];[1:a]{tempo}aresample=48000,apad=whole_dur={total:.3f},atrim=duration={total:.3f}[a]',
      '-map','[v]','-map','[a]','-t',f'{total:.3f}','-c:v','libx264','-preset','veryfast','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-ar','48000','-ac','2',str(out)])
    else:
-    await run([ff,'-y','-i',str(joined),'-f','lavfi','-t',f'{vdur:.3f}','-i','anullsrc=r=48000:cl=stereo','-map','0:v','-map','1:a',
-     '-t',f'{vdur:.3f}','-c:v','copy','-c:a','aac','-b:a','192k','-ar','48000','-ac','2',str(out)])
+    total=scene.duration if x.strictDuration and scene.duration else vdur
+    await run([ff,'-y','-i',str(joined),'-f','lavfi','-t',f'{total:.3f}','-i','anullsrc=r=48000:cl=stereo','-map','0:v','-map','1:a',
+     '-vf',f'tpad=stop_mode=clone:stop_duration={max(0,total-vdur):.3f}','-t',f'{total:.3f}','-c:v','libx264','-preset','veryfast','-c:a','aac','-b:a','192k','-ar','48000','-ac','2',str(out)])
    scene_files.append(out)
   # 3. join scenes in order
   manifest=work/'final.txt';manifest.write_text(''.join(f"file '{p.as_posix()}'\n" for p in scene_files),encoding='utf-8')

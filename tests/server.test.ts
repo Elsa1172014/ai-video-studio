@@ -161,3 +161,26 @@ describe('security helpers', () => {
 });
 
 vi.setConfig({testTimeout: 30000});
+
+
+it('persists exact seconds, sends a background batch, and hides an obsolete final', async () => {
+  const P = await import('@/lib/server/projects');
+  const J = await import('@/lib/server/jobs');
+  const db = await import('@/lib/server/db');
+  const text = 'Water is essential for life. The sun powers the water cycle.';
+  const p = await P.createProject({title: 'Seconds', sourceText: text, durationSeconds: 45});
+  expect(p.minutes).toBe(0.75);
+  const built = await P.buildProjectStoryboard(p.id);
+  expect(built.sourceText).toBe(text);
+  expect(built.storyboard!.totalSeconds).toBe(45);
+  const {job} = await J.createJob('project', p.id, {type: 'production'});
+  expect(job.input.strictDuration).toBe(true);
+  expect((job.input.scenes as any[]).reduce((n, s) => n + s.duration, 0)).toBe(45);
+  await db.put('job', job.id, p.id, {...job, status: 'completed'});
+  expect((await J.production('project', p.id)).final?.id).toBe(job.id);
+  await P.updateProject(p.id, {durationSeconds: 61});
+  const updated = await P.buildProjectStoryboard(p.id);
+  expect(updated.storyboard!.totalSeconds).toBe(61);
+  expect(updated.sourceText).toBe(text);
+  expect((await J.production('project', p.id)).final).toBeUndefined();
+});

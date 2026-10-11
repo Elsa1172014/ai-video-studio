@@ -1,6 +1,6 @@
 // GPU provider client: RunPod Serverless (preferred) or the legacy HTTP worker (worker/main.py).
 // Secrets stay server-side; responses are normalised to one status vocabulary.
-export type GpuAction = 'generate' | 'voice' | 'render';
+export type GpuAction = 'generate' | 'voice' | 'render' | 'produce';
 export type GpuStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
 export type GpuResult = {providerJobId?: string; status: GpuStatus; outputUrl?: string; message?: string};
 

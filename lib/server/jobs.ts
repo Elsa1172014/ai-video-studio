@@ -17,7 +17,7 @@ export const hash = (v: unknown) => createHash('sha256').update(JSON.stringify(v
 // ---------- owners (episode / educational project) ----------
 type Owner = {
   kind: OwnerKind; id: string; seriesId?: string; storyboard?: Storyboard; aspectRatio: AspectRatio;
-  language: 'ar' | 'en'; narratorVoice?: VoiceRef; characters: Character[];
+  strictDuration?: boolean; language: 'ar' | 'en'; narratorVoice?: VoiceRef; characters: Character[];
 };
 
 export async function loadOwner(kind: OwnerKind, id: string): Promise<Owner> {
@@ -27,7 +27,7 @@ export async function loadOwner(kind: OwnerKind, id: string): Promise<Owner> {
     return {kind, id, seriesId: e.seriesId, storyboard: e.storyboard, aspectRatio: e.aspectRatio, language: s.language, narratorVoice: s.narratorVoice, characters};
   }
   const p = await getProject(id);
-  return {kind, id, storyboard: p.storyboard, aspectRatio: p.aspectRatio, language: p.language, narratorVoice: p.narratorVoice, characters: []};
+  return {kind, id, strictDuration: (p.durationMode ?? 'fit') === 'fit', storyboard: p.storyboard, aspectRatio: p.aspectRatio, language: p.language, narratorVoice: p.narratorVoice, characters: []};
 }
 
 export const listJobs = async (ownerId: string) =>
@@ -71,20 +71,23 @@ function renderInput(o: Owner, jobs: Job[]) {
   const scenes = o.storyboard?.scenes || [];
   if (!scenes.length) throw new HttpError(400, 'Nothing to render: build the storyboard first');
   const missing: string[] = [];
+  const missingAudio: string[] = [];
   const parts = scenes.map(s => {
     const clips = s.shots.map(sh => latest(jobs, j => j.type === 'video' && j.shotId === sh.id && j.status === 'completed'));
     if (clips.some(c => !c)) missing.push(`scene ${s.index + 1}`);
     const audio = latest(jobs, j => j.type === 'audio' && j.sceneId === s.id && j.status === 'completed' && j.inputHash === hash(audioInput(o, s).input));
+    if ((s.narration.trim() || s.dialogue.length) && !audio) missingAudio.push(String(s.index + 1));
     return {sceneId: s.id, duration: s.duration, clips: clips.map(c => c?.output?.url || ''), audio: audio?.output?.url};
   });
   if (missing.length) throw new HttpError(409, `Generate all clips before the final render. Missing: ${missing.join(', ')}`);
+  if (missingAudio.length) throw new HttpError(409, `أكمل التعليق الصوتي للمشاهد ${missingAudio.join('، ')} قبل إخراج الفيديو.`);
   const f = frame(o.aspectRatio);
-  return {scenes: parts, width: f.renderWidth, height: f.renderHeight, fps: 24};
+  return {strictDuration: o.strictDuration, scenes: parts, width: f.renderWidth, height: f.renderHeight, fps: 24};
 }
 
 // ---------- lifecycle ----------
 async function submitJob(job: Job): Promise<Job> {
-  const action = job.type === 'video' ? 'generate' : job.type === 'audio' ? 'voice' : 'render';
+  const action = job.type === 'production' ? 'produce' : job.type === 'video' ? 'generate' : job.type === 'audio' ? 'voice' : 'render';
   try {
     const r = await gpu.submit(action, job.input);
     job = {...job, providerJobId: r.providerJobId, status: r.status, error: r.status === 'failed' ? r.message : undefined, submittedAt: now(), updatedAt: now()};
@@ -108,6 +111,10 @@ async function finish(job: Job, outputUrl: string): Promise<Job> {
 export async function createJob(kind: OwnerKind, ownerId: string, req: {type: JobType; sceneId?: string; shotId?: string; force?: boolean}) {
   const o = await loadOwner(kind, ownerId);
   const jobs = await listJobs(ownerId);
+  if (kind === 'project' && o.strictDuration && o.storyboard) {
+    const p = await getProject(ownerId);
+    if (o.storyboard.scenes.reduce((n, s) => n + s.duration, 0) !== (p.durationSeconds ?? Math.round(p.minutes * 60))) throw new HttpError(409, 'أعد بناء المشاهد لتطابق المدة التي حددتها بالثواني.');
+  }
   let input: Record<string, unknown>, sceneId: string | undefined, shotId: string | undefined, warnings: string[] = [];
   if (req.type === 'video') {
     if (!req.sceneId || !req.shotId) throw new HttpError(400, 'sceneId and shotId are required');
@@ -117,6 +124,15 @@ export async function createJob(kind: OwnerKind, ownerId: string, req: {type: Jo
     if (!req.sceneId) throw new HttpError(400, 'sceneId is required');
     const scene = sceneOf(o, req.sceneId);
     ({input, warnings} = audioInput(o, scene)); sceneId = scene.id;
+  } else if (req.type === 'production') {
+    const scenes = o.storyboard?.scenes || [];
+    if (!scenes.length) throw new HttpError(400, 'أنشئ مخطط المشاهد أولًا.');
+    const f = frame(o.aspectRatio);
+    input = {strictDuration: o.strictDuration, width: f.renderWidth, height: f.renderHeight, fps: 24, scenes: scenes.map(s => ({
+      sceneId: s.id, duration: s.duration,
+      shots: s.shots.map(sh => videoInput(o, s, sh.id)),
+      voice: s.narration.trim() || s.dialogue.length ? audioInput(o, s).input : undefined,
+    }))};
   } else {
     input = renderInput(o, jobs);
   }
@@ -126,7 +142,7 @@ export async function createJob(kind: OwnerKind, ownerId: string, req: {type: Jo
   if (existing) return {job: existing, warnings};
   const job: Job = {
     id: newId(), ownerKind: kind, ownerId, seriesId: o.seriesId, sceneId, shotId, type: req.type,
-    provider: req.type === 'video' ? String(input.provider) : req.type === 'audio' ? ttsProvider() : 'ffmpeg',
+    provider: req.type === 'production' ? videoProvider() : req.type === 'video' ? String(input.provider) : req.type === 'audio' ? ttsProvider() : 'ffmpeg',
     status: 'queued', attempts: 1, input, inputHash, createdAt: now(), updatedAt: now(),
   };
   await db.put('job', job.id, ownerId, job);
@@ -156,11 +172,12 @@ export async function refreshJob(id: string): Promise<Job> {
     return db.put('job', job.id, job.ownerId, {...job, error: e instanceof Error ? e.message : 'Status check failed', updatedAt: now()});
   }
   if (r.status === job.status && !r.outputUrl) {
+    if (job.progress !== r.message) return db.put('job', job.id, job.ownerId, {...job, progress: r.message, error: undefined, updatedAt: now()});
     if (job.error) return db.put('job', job.id, job.ownerId, {...job, error: undefined, updatedAt: now()});
     return job;
   }
   if (r.status === 'completed' && r.outputUrl) job = await finish(job, r.outputUrl);
-  else job = {...job, status: r.status, error: r.status === 'failed' ? r.message || 'Generation failed' : undefined, updatedAt: now()};
+  else job = {...job, status: r.status, progress: r.message, error: r.status === 'failed' ? r.message || 'Generation failed' : undefined, updatedAt: now()};
   return db.put('job', job.id, job.ownerId, job);
 }
 
@@ -186,8 +203,12 @@ export async function production(kind: OwnerKind, id: string): Promise<Productio
   // Only jobs that belong to the current storyboard (shots/scenes may have been regenerated).
   const shotIds = new Set(o.storyboard?.scenes.flatMap(s => s.shots.map(x => x.id)) || []);
   const sceneIds = new Set(o.storyboard?.scenes.map(s => s.id) || []);
-  const jobs = all.filter(j => (j.type === 'video' ? shotIds.has(j.shotId || '') : j.type === 'audio' ? sceneIds.has(j.sceneId || '') : true));
-  const final = latest(jobs, j => j.type === 'render');
+  const currentRender = (j: Job) => {
+    const parts = j.input.scenes as {sceneId?: string}[] | undefined;
+    return !!parts && parts.length === sceneIds.size && parts.every(s => sceneIds.has(s.sceneId || ''));
+  };
+  const jobs = all.filter(j => (j.type === 'video' ? shotIds.has(j.shotId || '') : j.type === 'audio' ? sceneIds.has(j.sceneId || '') : currentRender(j)));
+  const final = latest(jobs, j => j.type === 'render' || j.type === 'production');
   let status: ProductionStatus = !o.storyboard ? 'draft' : 'storyboard';
   if (jobs.some(j => j.type !== 'render' && ACTIVE.has(j.status))) status = 'generating';
   else if (final && ACTIVE.has(final.status)) status = 'rendering';
