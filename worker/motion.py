@@ -11,6 +11,9 @@ def font(size):
   if Path(path).exists():return ImageFont.truetype(path,size)
  raise RuntimeError('خط عرض النص العربي غير متاح على الخادم.')
 
+def display_text(text):
+ return re.sub(r'[0-9٠-٩]+(?:[-–][0-9٠-٩]+)+',lambda m:'\u202a'+m.group()+'\u202c',text)
+
 def lines(text,f,width,draw):
  result=[];line=''
  for word in text.split():
@@ -30,7 +33,7 @@ def card(scene, text, label, page, count, images, width, height, format='explain
  d.rectangle((width-margin-8,margin+24,width-margin-3,height-margin-24),fill=(74,210,185))
  def write(value,y,ft,color,maxwidth=None):
   for line in lines(value,ft,maxwidth or width-2*margin-65,d):
-   d.text((width-margin-30,y),line,font=ft,anchor='ra',fill=color,direction='rtl' if re.search('[\u0600-\u06ff]',line) else 'ltr');y+=int(ft.size*1.55)
+   d.text((width-margin-30,y),display_text(line),font=ft,anchor='ra',fill=color,direction='rtl' if re.search('[\u0600-\u06ff]',line) else 'ltr');y+=int(ft.size*1.55)
   return y
  y=write(label,margin+20,small,(74,210,185))
  y=write(text,y+20,f,(244,246,250))
@@ -45,6 +48,19 @@ def card(scene, text, label, page, count, images, width, height, format='explain
      d.rounded_rectangle((x,base-h,x+int(70*scale),base),radius=6,fill=(35,87,104))
      for j in range(2):d.rectangle((x+15+j*25,base-h+18,x+25+j*25,base-h+29),fill=(109,201,187))
     d.line((margin+30,base+25,width-margin-35,base+25),fill=(222,180,99),width=5)
+    if 'مدرسة' in scene.visual or 'مدرسة' in scene.narration:
+     left=margin+50;right=width-margin-190
+     d.rectangle((left,base-85,left+140,base+2),fill=(48,132,150));d.polygon([(left-10,base-85),(left+70,base-140),(left+150,base-85)],fill=(73,173,166))
+     d.rectangle((right,base-115,right+160,base+2),fill=(120,83,140))
+     d.text((left+110,base-58),'البيت',font=small,anchor='ra',fill='white',direction='rtl')
+     d.text((right+140,base-76),'المدرسة',font=small,anchor='ra',fill='white',direction='rtl')
+     cx=width//2;d.ellipse((cx-13,base-49,cx+13,base-23),fill=(238,193,139));d.line((cx,base-21,cx,base+8),fill=(101,221,201),width=10);d.line((cx,base+6,cx-14,base+23),fill=(101,221,201),width=6);d.line((cx,base+6,cx+14,base+23),fill=(101,221,201),width=6)
+    elif 'المرافق' in scene.title or 'الخدمات' in scene.title:
+     center=width//2
+     d.ellipse((center-150,base-145,center+150,base+30),outline=(74,210,185),width=4)
+     d.rounded_rectangle((center-65,base-85,center+65,base-10),radius=8,fill=(46,130,148))
+     d.text((center+44,base-64),'البيت',font=small,anchor='ra',fill='white',direction='rtl')
+     d.text((width-margin-50,base-130),'المرافق قريبة',font=small,anchor='ra',fill=(231,211,148),direction='rtl')
     for k in range(3):
      x=width-margin-80-k*60;d.line((x,base-5,x,base+16),fill=(151,131,98),width=4);d.ellipse((x-20,base-42,x+20,base-2),fill=(44,145,114))
   elif y+70<ground:

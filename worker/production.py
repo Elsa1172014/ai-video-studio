@@ -92,7 +92,7 @@ async def produce(req:ProductionRequest, progress, lock):
    def motion_progress(ratio):report(f'جارٍ تحريك مشهد {i+1} من {len(req.scenes)}',12+78*(i+ratio)/len(req.scenes),'motion')
    motion_progress(0)
    async def graphics(scene=s):return await generate_scene(scene,req.width,req.height,req.format,motion_progress,req.style)
-   clip=await cached('motion-v1',{'scene':s.model_dump(),'width':req.width,'height':req.height,'format':req.format,'style':req.style},graphics)
+   clip=await cached('motion-v2',{'scene':s.model_dump(),'width':req.width,'height':req.height,'format':req.format,'style':req.style},graphics)
    parts.append(RenderScene(sceneId=s.sceneId,duration=s.duration,clips=[clip],audio=audios[i]))
    continue
   for shot in s.shots:

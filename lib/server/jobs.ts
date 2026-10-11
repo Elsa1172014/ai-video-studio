@@ -102,7 +102,7 @@ async function finish(job: Job, outputUrl: string): Promise<Job> {
   const allowed = job.type === 'audio' ? ['audio' as const] : ['video' as const];
   try {
     const output = await ingestRemote(outputUrl, `${job.ownerKind}s/${job.ownerId}/${job.type}`, allowed);
-    return {...job, status: 'completed', output, error: undefined, completedAt: now(), updatedAt: now()};
+    return {...job, status: 'completed', output, progress:'اكتمل الفيديو وحُفظ بنجاح', progressPercent:100, etaSeconds:0, stage:'completed', error: undefined, completedAt: now(), updatedAt: now()};
   } catch (e) {
     return {...job, status: 'failed', error: `Generated, but saving to storage failed: ${e instanceof Error ? e.message : e}`, updatedAt: now()};
   }

@@ -123,6 +123,7 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
       <div className="flex flex-wrap gap-2">
         {running ? <button onClick={() => {stopAll(); if (final?.type === 'production' && ACTIVE(final)) act(() => api(`/api/jobs/${final.id}/cancel`, {method: 'POST'}));}} className="btn ghost">{final?.type === 'production' ? 'إيقاف الإنتاج' : 'إيقاف قائمة الانتظار مؤقتًا'}</button>
           : final?.status !== 'completed' && <button onClick={produceAll} disabled={!shots.length} className="btn primary disabled:opacity-40">{doneClips ? 'استكمال الإنتاج' : 'إنتاج الفيديو كاملًا'}</button>}
+        {batch && final?.status === 'completed' && <button className="btn ghost" onClick={()=>act(()=>submit({type:'production',force:true}))}>إعادة إنتاج النسخة الحالية</button>}
         {!batch && <button onClick={() => act(() => submit({type: 'render', force: final?.status === 'completed'}))} disabled={!allClips || jobs.some(ACTIVE)} className="btn ghost disabled:opacity-40">{final?.status === 'completed' ? 'إعادة إخراج الفيديو' : 'إخراج الفيديو النهائي'}</button>}
       </div>
     </div>

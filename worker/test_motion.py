@@ -5,6 +5,9 @@ from production import ProductionScene,ProductionShot
 import motion,render
 
 class MotionTests(unittest.IsolatedAsyncioTestCase):
+ def test_numeric_ranges_keep_source_order_in_rtl(self):
+  self.assertIn('\u202a500-600\u202c',motion.display_text('المرافق على مسافة 500-600 متر'))
+
  async def test_arabic_motion_and_ducked_score_produce_exact_video(self):
   with tempfile.TemporaryDirectory() as d:
    root=Path(d);progress=[]
