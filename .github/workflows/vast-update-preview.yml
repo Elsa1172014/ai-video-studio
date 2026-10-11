@@ -1,0 +1,37 @@
+name: Update approved Vast Preview worker
+on:
+  push:
+    branches: [feature/claude-complete-vast-integration]
+    paths:
+      - worker/**
+      - scripts/update-wan-preview.sh
+      - .github/workflows/vast-update-preview.yml
+permissions:
+  contents: read
+concurrency:
+  group: vast-preview-provision
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Test and update idle existing worker
+        env:
+          VAST_SSH_PRIVATE_KEY: ${{ secrets.VAST_PREVIEW_SSH_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          STUDIO_TMP=$(mktemp -d)
+          trap 'rm -rf "$STUDIO_TMP"' EXIT
+          test -n "$VAST_SSH_PRIVATE_KEY"
+          printf '%s\n' "$VAST_SSH_PRIVATE_KEY" > "$STUDIO_TMP/key"
+          unset VAST_SSH_PRIVATE_KEY
+          SSH_OPTS=(-i "$STUDIO_TMP/key" -p 15903 -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$STUDIO_TMP/known_hosts")
+          git archive HEAD worker scripts/update-wan-preview.sh | timeout 60 ssh "${SSH_OPTS[@]}" root@ssh8.vast.ai 'test "$CONTAINER_ID" = 55356791 && mkdir -p /workspace/studio-update && tar -x -C /workspace/studio-update'
+          timeout 360 ssh "${SSH_OPTS[@]}" root@ssh8.vast.ai 'bash /workspace/studio-update/scripts/update-wan-preview.sh /workspace/studio-update'
+          printf '%s\n' 'Existing Preview worker updated. No rental, credentials, tunnel, or Production change.' >> "$GITHUB_STEP_SUMMARY"

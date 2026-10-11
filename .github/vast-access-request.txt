@@ -1,0 +1,4 @@
+Approved SSH/CUDA diagnostic request: 2026-10-11 09:05 UTC
+Instance: 55356791
+Scope: connection, CUDA availability, and service listeners only.
+No package installation, inference, new rental, or Production deployment.

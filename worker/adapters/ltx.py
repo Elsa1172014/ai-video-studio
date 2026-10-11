@@ -11,7 +11,7 @@ from .base import VideoAdapter
 from storage import OUTPUT_DIR, output_path, public_url
 
 class LTXAdapter(VideoAdapter):
-    async def generate(self, prompt: str, duration: int, image_url: str | None = None) -> str:
+    async def generate(self, prompt: str, duration: int, image_url: str | None = None, width: int | None = None, height: int | None = None) -> str:
         ltx_dir = Path(os.getenv("LTX_DIR", str(Path.home() / "LTX-Video"))).expanduser()
         inference = ltx_dir / "inference.py"
         pipeline_config = os.getenv("LTX_PIPELINE_CONFIG", "configs/ltxv-2b-0.9.6-distilled.yaml")
@@ -27,8 +27,8 @@ class LTXAdapter(VideoAdapter):
         args = [
             sys.executable, str(inference),
             "--prompt", prompt,
-            "--height", os.getenv("LTX_HEIGHT", "512"),
-            "--width", os.getenv("LTX_WIDTH", "768"),
+            "--height", str(height or os.getenv("LTX_HEIGHT", "512")),
+            "--width", str(width or os.getenv("LTX_WIDTH", "768")),
             "--num_frames", str(num_frames),
             "--frame_rate", os.getenv("LTX_FRAME_RATE", "30"),
             "--seed", os.getenv("LTX_SEED", "42"),
@@ -38,8 +38,8 @@ class LTXAdapter(VideoAdapter):
 
         if image_url:
             parsed = urlparse(image_url)
-            if parsed.scheme not in ("http", "https"):
-                raise RuntimeError("Character reference image must use an http(s) URL.")
+            from fetch import assert_public_url
+            assert_public_url(image_url)
             suffix = Path(parsed.path).suffix.lower()
             if suffix not in (".jpg", ".jpeg", ".png", ".webp"):
                 suffix = ".jpg"

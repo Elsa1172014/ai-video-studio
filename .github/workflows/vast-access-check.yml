@@ -1,0 +1,158 @@
+name: Vast Preview SSH access check
+
+# Runs on the feature branch only. No Production changes or GPU rental.
+on:
+  push:
+    branches: [feature/claude-complete-vast-integration]
+    paths:
+      - .github/workflows/vast-access-check.yml
+      - .github/vast-access-request.txt
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vast-preview-access-check
+  cancel-in-progress: false
+
+jobs:
+  access-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      # Dedicated instance-only key; add only after explicit user approval.
+      VAST_SSH_PRIVATE_KEY: ${{ secrets.VAST_PREVIEW_SSH_PRIVATE_KEY }}
+    steps:
+      - name: Check credential availability
+        id: credentials
+        shell: bash
+        run: |
+          if [ -n "$VAST_SSH_PRIVATE_KEY" ]; then
+            printf 'ready=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'ready=false\n' >> "$GITHUB_OUTPUT"
+            printf '%s\n' 'SSH credential absent. No remote connection attempted.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Prepare encrypted credential transport and verify service listeners
+        if: steps.credentials.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          ACCESS_TMP=$(mktemp -d)
+          trap 'rm -rf "$ACCESS_TMP"' EXIT
+          printf '%s\n' "$VAST_SSH_PRIVATE_KEY" > "$ACCESS_TMP/key"
+          unset VAST_SSH_PRIVATE_KEY
+          # First contact uses SSH TOFU. Changed host keys are rejected.
+          timeout 600 ssh -i "$ACCESS_TMP/key" -p 15903 \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=20 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=2 \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$ACCESS_TMP/known_hosts" \
+            root@ssh8.vast.ai 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          printf '%s\n' 'SSH connected to the approved Vast Preview instance.'
+          test "${CONTAINER_ID:-}" = 55356791
+          umask 077
+          if [ ! -f /workspace/studio-credential-transport.pem ]; then
+            openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out /workspace/studio-credential-transport.pem 2>/dev/null
+          fi
+          printf '%s\n' '--- CREDENTIAL TRANSPORT PUBLIC KEY ---'
+          openssl pkey -in /workspace/studio-credential-transport.pem -pubout
+          printf '%s\n' '--- END TRANSPORT PUBLIC KEY ---'
+          vast-capabilities | /venv/main/bin/python -c 'import json,sys; d=json.load(sys.stdin); print("Allocated ports:",json.dumps(d.get("instance",{}).get("open_ports",[])))'
+          nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
+          STUDIO_PY=python
+          if [ -x /venv/main/bin/python ]; then STUDIO_PY=/venv/main/bin/python; fi
+          "$STUDIO_PY" - <<'PY'
+          import torch
+          print('PyTorch:', torch.__version__)
+          print('CUDA available:', torch.cuda.is_available())
+          assert torch.cuda.is_available(), 'CUDA is not available'
+          PY
+          printf '%s\n' 'Listening TCP services:'
+          ss -lnt
+          if command -v supervisorctl >/dev/null; then supervisorctl status || true; fi
+          "$STUDIO_PY" - <<'PY'
+          from pathlib import Path
+          import re
+          for name in ('jupyter.log', 'tunnel_manager.log'):
+              path = Path('/var/log/portal') / name
+              if not path.exists():
+                  continue
+              print('Diagnostic log:', name)
+              for line in path.read_text(errors='replace').splitlines()[-35:]:
+                  line = re.sub(r'(?i)(token|password|secret|authorization|bearer|api[_-]?key)[^\n]*', '[credential redacted]', line)
+                  line = re.sub(r'[A-Za-z0-9_-]{40,}', '[long value redacted]', line)
+                  print(line)
+          PY
+          "$STUDIO_PY" - <<'PYREMOTE'
+          from pathlib import Path
+          import json, re
+          def clean(text):
+              text=re.sub(r'(?i)(token|password|secret|authorization|bearer|api[_-]?key)[^\n]*', '[credential redacted]', text)
+              return re.sub(r'https://[^\s]+[?][^\s]+', '[query URL redacted]', text)
+          jobs=Path('/workspace/ai-video-output/jobs')
+          if jobs.exists():
+              for p in sorted(jobs.glob('*.json'),key=lambda p:p.stat().st_mtime)[-8:]:
+                  d=json.loads(p.read_text()); print('Worker job:',clean(json.dumps({k:d.get(k) for k in ('jobId','kind','status','message')})))
+          for p in Path('/proc').iterdir():
+              if not p.name.isdigit(): continue
+              try:
+                  cmd=(p/'cmdline').read_bytes()
+                  if b'/opt/Wan2.2/generate.py' not in cmd: continue
+                  print('Wan subprocess PID:',p.name)
+                  with (p/'fd/1').open('rb') as log:
+                      log.seek(0,2); log.seek(max(0,log.tell()-5000))
+                      print(clean(log.read(5000).decode(errors='replace')))
+              except (FileNotFoundError,PermissionError,OSError): pass
+          PYREMOTE
+          if [ -x /venv/studio/bin/python ] && [ -f /workspace/.studio-worker.env ]; then
+            /venv/studio/bin/python - <<'PYAPI'
+          import json, urllib.request, urllib.error
+          from dotenv import dotenv_values
+          env=dotenv_values('/workspace/.studio-worker.env')
+          base=env['PUBLIC_OUTPUT_BASE_URL']; key=env['GPU_API_KEY']
+          cases=[
+              ('missing bearer', '/generate', {'provider':'wan','prompt':'Authentication test only','duration':1}, None, 401),
+              ('wrong bearer', '/generate', {'provider':'wan','prompt':'Authentication test only','duration':1}, 'invalid-test-key', 401),
+              ('unsupported provider', '/generate', {'provider':'unsupported','prompt':'Validation test only','duration':1}, key, 400),
+              ('invalid duration', '/generate', {'provider':'wan','prompt':'Validation test only','duration':0}, key, 422),
+              ('empty prompt', '/generate', {'provider':'wan','prompt':'','duration':1}, key, 422),
+              ('unknown job', '/jobs/00000000-0000-0000-0000-000000000000', None, key, 404),
+          ]
+          for label,path,payload,bearer,expected in cases:
+              headers={'Content-Type':'application/json'}
+              if bearer: headers['Authorization']='Bearer '+bearer
+              req=urllib.request.Request(base+path,data=json.dumps(payload).encode() if payload is not None else None,headers=headers)
+              try:
+                  with urllib.request.urlopen(req,timeout=15) as response: status=response.status
+              except urllib.error.HTTPError as e: status=e.code
+              assert status==expected, (label,status,expected)
+              print('HTTPS error handling PASS:',label,status)
+          print('Six rejection checks passed. No generation job was accepted.')
+          PYAPI
+            /venv/studio/bin/python - <<'PYMP4'
+          import json, pathlib, subprocess, time
+          # Monitor the single explicitly approved live acceptance clip, never submit more.
+          job_path=pathlib.Path('/workspace/ai-video-output/jobs/af0e4d10-4718-4c47-9682-56260d4c1e4c.json')
+          if job_path.exists():
+              for _ in range(24):
+                  job=json.loads(job_path.read_text())
+                  print('Acceptance clip state:',job['status'],flush=True)
+                  if job['status'] in ('failed','cancelled'): raise RuntimeError('Acceptance clip did not complete')
+                  if job['status']=='completed':
+                      name=job['outputUrl'].rsplit('/',1)[-1]
+                      video=pathlib.Path('/workspace/ai-video-output')/name
+                      probe=subprocess.check_output(['ffprobe','-v','error','-show_entries','format=duration,size:stream=codec_name,codec_type,width,height,avg_frame_rate','-of','json',str(video)])
+                      print('Real Wan MP4 metadata:',probe.decode(),flush=True)
+                      subprocess.run(['ffmpeg','-v','error','-i',str(video),'-f','null','-'],check=True,timeout=120)
+                      print('PASS: real Wan MP4 fully decoded.',flush=True)
+                      break
+                  time.sleep(15)
+              else: print('Acceptance clip still running; inference was not restarted or cancelled.',flush=True)
+          PYMP4
+          fi
+          REMOTE
+          printf '%s\n' 'SSH and CUDA passed; host-only transport key prepared. No inference requested.' >> "$GITHUB_STEP_SUMMARY"

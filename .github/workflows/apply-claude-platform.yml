@@ -1,0 +1,11 @@
+name: Claude Platform Files Present
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4 # v4.2.2
+      - run: test -f lib/server/gpu.ts && test -f worker/main.py && test -f components/EducationStudio.tsx && test -f components/SeriesStudio.tsx

@@ -5,7 +5,7 @@ WORKDIR /opt
 RUN git clone --depth 1 https://github.com/Lightricks/LTX-Video.git
 # LTX uses a Poetry build backend that does not support editable installs in this image.
 # Install the inference extras as a normal package, matching the upstream instructions.
-RUN python3 -m pip install --no-cache-dir "/opt/LTX-Video[inference]" && python3 -m pip install --no-cache-dir runpod fastapi uvicorn python-multipart imageio-ffmpeg
+RUN python3 -m pip install --no-cache-dir "/opt/LTX-Video[inference]" && python3 -m pip install --no-cache-dir runpod fastapi uvicorn python-multipart imageio-ffmpeg boto3
 WORKDIR /app
 COPY worker/ /app/
 CMD ["python3","-u","runpod_handler.py"]

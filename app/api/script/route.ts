@@ -1,18 +1,28 @@
-import {NextResponse} from 'next/server';
 import {z} from 'zod';
-const S=z.object({prompt:z.string().min(3),minutes:z.number().min(0.5).max(20),mode:z.enum(['education','series']).default('education'),seriesTitle:z.string().optional(),episodeTitle:z.string().optional(),episodeMemory:z.string().optional(),characters:z.array(z.object({name:z.string(),description:z.string()})).optional()});
-function sentences(text:string){return text.replace(/\s+/g,' ').split(/(?<=[.!?؟؛])\s+|\n+/).map(x=>x.trim()).filter(Boolean)}
-function clamp(n:number,min:number,max:number){return Math.max(min,Math.min(max,n))}
-export async function POST(req:Request){try{
- const x=S.parse(await req.json()),totalSeconds=Math.round(x.minutes*60),story=sentences(x.prompt);
- const target=x.mode==='education'?clamp(Math.round(totalSeconds/25),2,48):clamp(Math.round(totalSeconds/12),4,100),base=Math.floor(totalSeconds/target),remainder=totalSeconds-base*target;
- const cast=(x.characters||[]).filter(c=>c.name.trim()).map(c=>c.name.trim()+': '+c.description.trim()).join(' | ');
- const continuity=(cast?'CHARACTER BIBLE: '+cast+'. ':'')+'Preserve exact character identity, age, facial features, clothing logic, personality and voice across every scene and future episode.';
- const memory=x.episodeMemory?.trim()?'PREVIOUS EPISODE MEMORY: '+x.episodeMemory.trim()+'. Continue from this established canon. Do not contradict completed events, relationships or known facts.':'This is the first recorded episode; establish canon consistently.';
- const educationalRule='EDUCATIONAL MODE: Preserve the supplied teaching content and meaning. Do not invent new facts. Convert the source into clear visual explanation, examples and demonstrations suitable for learners.';
- const scenes=Array.from({length:target},(_,i)=>{const source=story[i%Math.max(1,story.length)]||x.prompt,duration=base+(i<remainder?1:0),progress=(i+0.5)/target,phase=progress<.15?'opening':progress<.75?'development':progress<.92?'climax':'ending';
- const prompt=x.mode==='education'?[educationalRule,'SOURCE LESSON: '+x.prompt,'CURRENT TEACHING BEAT: '+source,'SCENE '+(i+1)+' OF '+target+'.','Visualize this teaching beat accurately with purposeful camera movement and learner-friendly pacing. No unrelated content. No embedded text, subtitles or logos.'].join('\n')
- :['SERIES MODE. SERIES: '+(x.seriesTitle||'Untitled series'),'EPISODE: '+(x.episodeTitle||'Untitled episode'),memory,'CURRENT EPISODE STORY: '+x.prompt,'CURRENT STORY BEAT: '+source,'SCENE '+(i+1)+' OF '+target+' ('+phase+').',continuity,'Maintain cause-and-effect, established relationships, location continuity and cinematic style. Show the beat visually with natural action. No embedded text, subtitles or logos.'].join('\n');
- return{id:crypto.randomUUID(),title:x.mode==='education'?'Learning scene '+(i+1):'Scene '+(i+1)+' · '+phase,sourceText:source,prompt,duration,status:'planned' as const}});
- return NextResponse.json({id:crypto.randomUUID(),title:(x.episodeTitle||x.prompt).slice(0,55),prompt:x.prompt,mode:x.mode,seriesTitle:x.seriesTitle,episodeTitle:x.episodeTitle,episodeMemory:x.episodeMemory,characters:x.characters||[],minutes:x.minutes,totalSeconds,createdAt:new Date().toISOString(),scenes});
-}catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Planning failed'},{status:400})}}
+import {route, body} from '@/lib/server/http';
+import {plan} from '@/lib/server/director';
+import {attachShots} from '@/lib/prompts';
+import {maxShotSeconds} from '@/lib/server/config';
+import {detectLanguage} from '@/lib/planner';
+import {seriesContext} from '@/lib/server/series';
+import {Id} from '@/lib/server/http';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
+
+// Stateless storyboard preview. With seriesId the canonical Character Bible and previous-episode
+// memory are loaded server-side. Stored productions use /api/projects/:id/storyboard and
+// /api/episodes/:id/storyboard instead.
+const S = z.object({
+  prompt: z.string().trim().min(3).max(40000), minutes: z.number().min(0.5).max(30),
+  mode: z.enum(['education', 'series']).default('education'), seriesId: Id.optional(), episodeNumber: z.number().int().min(1).optional(),
+  aspectRatio: z.enum(['16:9', '9:16', '1:1']).default('16:9'),
+});
+export const POST = route(async (req: Request) => {
+  const x = await body(req, S);
+  const ctx = x.mode === 'series' && x.seriesId ? await seriesContext(x.seriesId, x.episodeNumber) : null;
+  const language = ctx?.series.language || detectLanguage(x.prompt);
+  const characters = ctx?.characters || [];
+  const board = await plan({mode: x.mode, text: x.prompt, minutes: x.minutes, language, characters, continuity: ctx?.continuity});
+  return attachShots(board, {mode: x.mode, aspectRatio: x.aspectRatio, characters, continuity: ctx?.continuity, style: ctx?.series.style, maxShotSeconds: maxShotSeconds()});
+});

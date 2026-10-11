@@ -1,1 +1,27 @@
-import {NextResponse} from 'next/server';export async function POST(req:Request){const f=await req.formData();const file=f.get('file');if(!(file instanceof File))return NextResponse.json({error:'file required'},{status:400});if(file.size>100*1024*1024)return NextResponse.json({error:'File exceeds 100MB web upload limit'},{status:413});const base=process.env.GPU_API_URL;if(!base)return NextResponse.json({status:'unconfigured',name:file.name,size:file.size,message:'Connect GPU_API_URL to persist media'});const out=new FormData();out.set('file',file);const r=await fetch(base.replace(/\/$/,'')+'/media',{method:'POST',headers:process.env.GPU_API_KEY?{Authorization:`Bearer ${process.env.GPU_API_KEY}`}:{},body:out});return NextResponse.json(await r.json(),{status:r.status})}
+import {z} from 'zod';
+import {route, HttpError} from '@/lib/server/http';
+import {ingestRemote, putBytes, validate, LIMITS, storageDurable} from '@/lib/server/storage';
+import {assertSafeUrl} from '@/lib/server/net';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+// Uploads a character reference image (multipart "file") or imports one from a public https URL
+// (JSON {url}) into durable storage. Bytes are validated by magic number, never by extension.
+export const POST = route(async (req: Request) => {
+  const type = req.headers.get('content-type') || '';
+  if (type.includes('application/json')) {
+    const {url} = z.object({url: z.string().url().max(2000)}).parse(await req.json());
+    await assertSafeUrl(url);
+    const ref = await ingestRemote(url, 'references', ['image'], {trustedOnly: false});
+    return {...ref, warning: storageDurable() ? undefined : 'No durable storage configured; the original URL is kept.'};
+  }
+  if (Number(req.headers.get('content-length') || 0) > LIMITS.image + 64 * 1024) throw new HttpError(413, 'Image must be 4 MB or smaller');
+  const form = await req.formData().catch(() => null);
+  const file = form?.get('file');
+  if (!(file instanceof File)) throw new HttpError(400, 'Image file is required');
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const {type: mime} = validate(bytes, ['image']);
+  const ref = await putBytes('references', bytes, mime);
+  return {...ref, warning: ref.durable ? undefined : 'Saved to local disk (development only). Configure BLOB_READ_WRITE_TOKEN or S3_* for durable storage.'};
+});
