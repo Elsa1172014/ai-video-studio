@@ -1,0 +1,69 @@
+name: Vast Preview SSH access check
+
+# Runs on the feature branch only. No Production changes or GPU rental.
+on:
+  push:
+    branches: [feature/claude-complete-vast-integration]
+    paths:
+      - .github/workflows/vast-access-check.yml
+      - .github/vast-access-request.txt
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vast-preview-access-check
+  cancel-in-progress: false
+
+jobs:
+  access-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      # Dedicated instance-only key; add only after explicit user approval.
+      VAST_SSH_PRIVATE_KEY: ${{ secrets.VAST_PREVIEW_SSH_PRIVATE_KEY }}
+    steps:
+      - name: Check credential availability
+        id: credentials
+        shell: bash
+        run: |
+          if [ -n "$VAST_SSH_PRIVATE_KEY" ]; then
+            printf 'ready=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'ready=false\n' >> "$GITHUB_OUTPUT"
+            printf '%s\n' 'SSH credential absent. No remote connection attempted.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Verify SSH, CUDA and service listeners
+        if: steps.credentials.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          ACCESS_TMP=$(mktemp -d)
+          trap 'rm -rf "$ACCESS_TMP"' EXIT
+          printf '%s\n' "$VAST_SSH_PRIVATE_KEY" > "$ACCESS_TMP/key"
+          unset VAST_SSH_PRIVATE_KEY
+          # First contact uses SSH TOFU. Changed host keys are rejected.
+          timeout 120 ssh -i "$ACCESS_TMP/key" -p 15903 \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=20 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=2 \
+            -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$ACCESS_TMP/known_hosts" \
+            root@ssh8.vast.ai 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          printf '%s\n' 'SSH connected to the approved Vast Preview instance.'
+          nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
+          STUDIO_PY=python
+          if [ -x /venv/main/bin/python ]; then STUDIO_PY=/venv/main/bin/python; fi
+          "$STUDIO_PY" - <<'PY'
+          import torch
+          print('PyTorch:', torch.__version__)
+          print('CUDA available:', torch.cuda.is_available())
+          assert torch.cuda.is_available(), 'CUDA is not available'
+          PY
+          printf '%s\n' 'Listening TCP services:'
+          ss -lnt
+          if command -v supervisorctl >/dev/null; then supervisorctl status || true; fi
+          REMOTE
+          printf '%s\n' 'SSH and CUDA checks passed. No packages, weights or inference jobs were requested.' >> "$GITHUB_STEP_SUMMARY"
