@@ -5,6 +5,7 @@ import {arabicLabel, arabicNotice, arabicCount} from '@/lib/arabic';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import type {Job, OwnerKind, ProductionView, Scene} from '@/lib/types';
 import {api, errorText, playable} from '@/lib/client';
+import ProductionProgress from './ProductionProgress';
 import {getDownloadUrl} from '@vercel/blob';
 
 const ACTIVE = (j?: Job) => !!j && (j.status === 'queued' || j.status === 'processing');
@@ -125,6 +126,7 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
         {!batch && <button onClick={() => act(() => submit({type: 'render', force: final?.status === 'completed'}))} disabled={!allClips || jobs.some(ACTIVE)} className="btn ghost disabled:opacity-40">{final?.status === 'completed' ? 'إعادة إخراج الفيديو' : 'إخراج الفيديو النهائي'}</button>}
       </div>
     </div>
+    {final && <ProductionProgress job={final}/>}
     <div className="mt-4 h-2 overflow-hidden rounded bg-white/10"><div className="h-full bg-purple-500 transition-all" style={{width: pct + '%'}}/></div>
     {error && <div className="mt-4 rounded-xl border border-red-500/30 p-3 text-sm text-red-300">{error}</div>}
     <p className="mt-2 text-xs text-slate-400">إنتاج الفيديو الكامل يستمر على الخادم بعد إغلاق الصفحة. توليد اللقطات قد يستغرق وقتًا طويلًا؛ مدة الفيديو ليست مدة الانتظار.</p>

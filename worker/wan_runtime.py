@@ -1,5 +1,5 @@
 """Bridge to the official Wan 2.2 TI2V-5B CLI; no user text enters a shell."""
-import asyncio, math, os, sys, tempfile
+import asyncio, math, os, sys, tempfile, re, time
 from pathlib import Path
 from fetch import fetch_media
 
@@ -21,7 +21,7 @@ def command(prompt, seconds, output, width=None, height=None, image=None):
     if image: args += ['--image', str(image)]
     return root, args
 
-async def generate(prompt, seconds, output, image_url=None, width=None, height=None):
+async def generate(prompt, seconds, output, image_url=None, width=None, height=None, progress=None):
     with tempfile.TemporaryDirectory(prefix='wan-ref-') as work:
         image = await asyncio.to_thread(fetch_media, image_url, Path(work), '.png') if image_url else None
         root, args = command(prompt, seconds, output, width, height, image)
@@ -29,7 +29,17 @@ async def generate(prompt, seconds, output, image_url=None, width=None, height=N
         with tempfile.TemporaryFile() as log:
             proc = await asyncio.create_subprocess_exec(*args, cwd=root, stdout=log, stderr=log)
             try:
-                await asyncio.wait_for(proc.wait(), timeout=int(os.getenv('WAN_TIMEOUT_SECONDS', '1800')))
+                started=time.monotonic()
+                waiting=asyncio.create_task(proc.wait())
+                while proc.returncode is None:
+                    try:await asyncio.wait_for(asyncio.shield(waiting),timeout=3)
+                    except TimeoutError:
+                        if time.monotonic()-started>int(os.getenv('WAN_TIMEOUT_SECONDS','1800')):raise
+                        size=os.fstat(log.fileno()).st_size
+                        tail=os.pread(log.fileno(),min(8000,size),max(0,size-8000)).decode(errors='replace')
+                        matches=re.findall(r'(\d+)%\|[^\r\n]*?\|\s*(\d+)/(\d+)',tail)
+                        if progress and matches:
+                            _,step,total=matches[-1];progress(min(1,int(step)/max(1,int(total))))
             except (asyncio.CancelledError, TimeoutError):
                 proc.kill(); await proc.wait(); raise
             if proc.returncode:

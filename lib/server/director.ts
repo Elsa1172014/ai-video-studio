@@ -119,3 +119,18 @@ export async function draftMemoryLLM(x: {title: string; goal: string; scenes: Sc
   const byName = new Map(x.characters.map(c => [c.name.trim().toLowerCase(), c.id]));
   return {...out, characterStates: out.characterStates.map(s => ({...s, characterId: byName.get(s.name.trim().toLowerCase())}))};
 }
+
+const CreativeOut=z.object({beats:z.array(z.object({index:z.number().int(),idea:z.string(),narration:z.string(),evidence:z.array(z.string()),visual:z.string()})).min(1).max(60)});
+export async function improveDirection(direction:import('@/lib/creative').FilmDirection, seconds:number) {
+  if(!directorEnabled()) throw new Error('المخرج الذكي غير مفعّل. يمكنك تحرير الأفكار والتعليق المقترح يدويًا؛ لن نحذف أفكار النص تلقائيًا.');
+  const out=await ask(CreativeOut,`Create an Arabic educational film treatment. Preserve the central idea of EVERY source paragraph and its causal links, caveats, named speakers, and evidence. Never merely select disconnected fragments. One output per input index. Summarize coherently in Arabic, maximum floor(duration * 1.6) spoken words per beat. Copy numerical evidence exactly, never invent figures or attribution. Include evidence as VERBATIM excerpts from that paragraph. visual is a specific shot description that teaches the idea and demonstrates its evidence; do not claim a dramatic recreation is documentary footage. Format: ${direction.format}. Style: ${direction.style}. Producer instructions: ${direction.execution}. Return all indices exactly once.`,JSON.stringify(direction.beats.map((b,index)=>({index,source:b.sourceText,duration:b.duration}))));
+  if(out.beats.length!==direction.beats.length || new Set(out.beats.map(b=>b.index)).size!==direction.beats.length)throw new Error('لم يحافظ المقترح على جميع الفقرات. حرّر المقترح يدويًا أو أعد المحاولة.');
+  const beats=direction.beats.map((b,index)=>{
+    const v=out.beats.find(v=>v.index===index);if(!v)throw new Error('فقرة غير مغطاة في المقترح.');
+    if(v.narration.trim().split(/\s+/).length>Math.floor(b.duration*1.8))throw new Error('الفكرة والأدلة تحتاج وقتًا أطول؛ زد المدة أو حرّر التعليق يدويًا.');
+    if(v.evidence.some(e=>!norm(b.sourceText).includes(norm(e))))throw new Error('تعذر مطابقة الدليل بالنص الأصلي.');
+    const numbers=b.sourceText.match(/[0-9٠-٩]+(?:[.,٫-][0-9٠-٩]+)*/g)||[];
+    if(numbers.some(n=>!v.narration.includes(n)&&!v.evidence.some(e=>e.includes(n))))throw new Error('اختفى دليل رقمي من الفقرة؛ راجع المقترح.');
+    return {...b,idea:v.idea,narration:v.narration,evidence:v.evidence,visual:v.visual};
+  });return {...direction,beats};
+}

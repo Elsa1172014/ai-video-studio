@@ -2,7 +2,7 @@
 // Secrets stay server-side; responses are normalised to one status vocabulary.
 export type GpuAction = 'generate' | 'voice' | 'render' | 'produce';
 export type GpuStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
-export type GpuResult = {providerJobId?: string; status: GpuStatus; outputUrl?: string; message?: string};
+export type GpuResult = {providerJobId?: string; status: GpuStatus; outputUrl?: string; message?: string; progressPercent?:number; etaSeconds?:number; stage?:string};
 
 export class GpuNotConfigured extends Error {}
 
@@ -79,7 +79,7 @@ function normalizeLegacy(data: any): GpuResult {
   const status: GpuStatus = s === 'completed' ? 'completed' : s === 'failed' ? 'failed' : s === 'processing' ? 'processing' : s === 'cancelled' ? 'cancelled' : 'queued';
   const outputUrl = absolutize(data?.outputUrl || data?.url);
   if (status === 'completed' && !outputUrl) return {providerJobId: data?.jobId, status: 'failed', message: 'GPU worker finished without returning an output URL'};
-  return {providerJobId: data?.jobId, status, outputUrl, message: data?.message || data?.error};
+  return {providerJobId: data?.jobId, status, outputUrl, progressPercent: data?.progressPercent, etaSeconds: data?.etaSeconds, stage: data?.stage, message: data?.message || data?.error};
 }
 
 export async function submit(action: GpuAction, input: Record<string, unknown>): Promise<GpuResult> {

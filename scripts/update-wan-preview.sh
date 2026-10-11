@@ -17,8 +17,9 @@ for path in pathlib.Path('/workspace/ai-video-output/jobs').glob('*.json'):
 if active:raise SystemExit('Worker is busy; refusing to interrupt '+str(len(active))+' active job(s).')
 print('Worker idle: safe to update.')
 PY
+/venv/studio/bin/python -m pip install --quiet Pillow==11.1.0
 /venv/studio/bin/python -m compileall -q "$STUDIO_STAGE/worker"
-(cd "$STUDIO_STAGE" && PYTHONPATH=worker /venv/studio/bin/python -m unittest worker/test_duration.py -v)
+(cd "$STUDIO_STAGE" && PYTHONPATH=worker /venv/studio/bin/python -m unittest worker/test_duration.py worker/test_motion.py -v)
 cp -a "$STUDIO_STAGE/worker/." /workspace/ai-video-studio/worker/
 supervisorctl restart studio_worker
 /venv/studio/bin/python - <<'PY'
@@ -26,9 +27,9 @@ import json,time,urllib.request
 for attempt in range(30):
     try:
         with urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=5) as response:health=json.load(response)
-        assert health.get('version')=='0.5.0'
+        assert health.get('version')=='0.6.0'
         assert health.get('gpu',{}).get('available') and health.get('wan',{}).get('ready')
-        print('Worker 0.5.0: GPU and Wan ready. Existing tunnel unchanged.')
+        print('Worker 0.6.0: GPU and Wan ready. Existing tunnel unchanged.')
         break
     except Exception:
         if attempt==29:raise

@@ -10,6 +10,9 @@ class RenderScene(BaseModel):
  sceneId:str|None=None
 
 class RenderRequest(BaseModel):
+ music:str="none"
+ musicUrl:str|None=None
+ musicVolume:float=Field(default=.12,ge=0,le=.5)
  strictDuration:bool=False
  scenes:list[RenderScene]=[]
  clips:list[str]=[]  # legacy: plain ordered clip list, no audio
@@ -85,6 +88,17 @@ async def render(x:RenderRequest)->str:
   manifest=work/'final.txt';manifest.write_text(''.join(f"file '{p.as_posix()}'\n" for p in scene_files),encoding='utf-8')
   final=OUTPUT_DIR/f'{uuid.uuid4()}.mp4'
   await run([ff,'-y','-f','concat','-safe','0','-i',str(manifest),'-c','copy','-movflags','+faststart',str(final)])
+  if x.music != 'none' and x.musicVolume > 0:
+   length=await duration(final)
+   if x.music=='upload':
+    if not x.musicUrl:raise RuntimeError('ارفع ملف الموسيقى أولًا.')
+    music=fetch_media(x.musicUrl,work,'.wav')
+   else:
+    from music import compose
+    music=work/'score.wav';await asyncio.to_thread(compose,music,length,x.music)
+   mixed=OUTPUT_DIR/f'{uuid.uuid4()}.mp4'
+   await run([ff,'-y','-i',str(final),'-stream_loop','-1','-i',str(music),'-filter_complex',f'[0:a]asplit=2[voice][side];[1:a]volume={x.musicVolume},afade=t=out:st={max(0,length-2)}:d=2[m];[m][side]sidechaincompress=threshold=0.025:ratio=6:attack=20:release=400[duck];[voice][duck]amix=inputs=2:duration=first:normalize=0[a]','-map','0:v','-map','[a]','-c:v','copy','-c:a','aac','-t',str(length),'-movflags','+faststart',str(mixed)])
+   final.unlink(missing_ok=True);final=mixed
   return public_url(final)
  finally:
   shutil.rmtree(work,ignore_errors=True)

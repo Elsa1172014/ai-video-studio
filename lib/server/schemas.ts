@@ -28,7 +28,14 @@ export const CharacterPatch = CharacterIn.partial().extend({referenceImage: Medi
 export const EpisodeIn = z.object({title: text(160).min(1), goal: text(40000).min(3), minutes: Minutes, number: z.number().int().min(1).max(10000).optional()});
 export const EpisodePatch = EpisodeIn.omit({number: true}).partial();
 
+export const Direction = z.object({
+ format:z.enum(['explainer','story','dialogue']), method:z.enum(['motion','cinematic']), style:text(1200), execution:text(2000),
+ music:z.enum(['none','ambient','cinematic','upload']), musicUrl:MediaUrl.optional(), musicVolume:z.number().min(0).max(0.5),
+ characters:z.array(CharacterIn.extend({id:Id,seriesId:text(100),locked:z.boolean(),createdAt:text(80),updatedAt:text(80)})).max(12),
+ beats:z.array(z.object({id:Id,sourceText:text(60000),idea:text(2000).min(1),narration:text(8000),evidence:z.array(text(4000)).max(30),visual:text(4000),duration:z.number().int().min(5).max(1800),characterIds:z.array(Id).max(12),speakerId:Id.optional()})).max(60),
+});
 export const ProjectIn = z.object({
+  direction:Direction.optional(),
   durationSeconds: z.number().int().min(5).max(1800).optional(),
   durationMode: z.enum(['fit', 'full']).optional(),
   title: text(160).min(1), sourceText: text(60000).min(3), minutes: Minutes.optional(),

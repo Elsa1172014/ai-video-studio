@@ -55,6 +55,8 @@ export type DialogueLine = { speakerId?: string; speaker: string; text: string }
 export type Shot = { id: string; prompt: string; duration: number };
 
 export type Scene = {
+  idea?: string;
+  evidence?: string[];
   id: string;
   index: number;
   title: string;
@@ -108,6 +110,7 @@ export type Episode = {
 };
 
 export type EducationProject = {
+  direction?: import("./creative").FilmDirection;
   durationSeconds?: number;
   durationMode?: 'fit' | 'full';
   id: string;
@@ -137,6 +140,9 @@ export type Job = {
   provider: string;
   providerJobId?: string;
   progress?: string;
+  progressPercent?: number;
+  etaSeconds?: number;
+  stage?: string;
   status: JobStatus;
   attempts: number;
   error?: string;

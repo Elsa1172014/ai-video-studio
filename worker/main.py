@@ -12,7 +12,7 @@ from render import RenderRequest,render
 from voice import VoiceRequest,synthesize
 from production import ProductionRequest
 
-app=FastAPI(title="AI Video Studio GPU Worker",version="0.5.0")
+app=FastAPI(title="AI Video Studio GPU Worker",version="0.6.0")
 app.mount("/outputs",StaticFiles(directory=str(OUTPUT_DIR)),name="outputs")
 JOB_DIR=Path(os.getenv("JOB_DIR",str(OUTPUT_DIR/"jobs"))).expanduser().resolve()
 JOB_DIR.mkdir(parents=True,exist_ok=True)
@@ -66,7 +66,9 @@ def start(kind,work,lock=None,with_progress=False):
  job=str(uuid.uuid4())
  JOBS[job]={"jobId":job,"kind":kind,"status":"queued"};save_job(job)
  def progress(message):
-  JOBS[job]["message"]=message;save_job(job)
+  if isinstance(message,dict):JOBS[job].update(message)
+  else:JOBS[job]["message"]=message
+  save_job(job)
  async def runner():
   try:
    if lock:
@@ -76,7 +78,7 @@ def start(kind,work,lock=None,with_progress=False):
    else:
     JOBS[job]["status"]="processing";save_job(job)
     url=await work(progress) if with_progress else await work()
-   JOBS[job].update(status="completed",outputUrl=url,message="Done")
+   JOBS[job].update(status="completed",outputUrl=url,message="اكتمل الفيديو",progressPercent=100,etaSeconds=0,stage="completed")
   except asyncio.CancelledError:
    JOBS[job].update(status="cancelled",message="Cancelled")
   except Exception as e:

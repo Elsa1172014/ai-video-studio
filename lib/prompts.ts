@@ -57,7 +57,7 @@ export function finishScene(s: Scene, prev: Scene | undefined, total: number, ct
   const lead = cast.find(c => c.referenceImage?.url);
   const lengths = splitShots(s.duration, ctx.maxShotSeconds);
   const shots = lengths.map((d, j) => ({id: crypto.randomUUID(), duration: d, prompt: shotPrompt(s, prev, total, j, lengths.length, cast, ctx)}));
-  return {...s, shots, referenceImageUrl: ctx.mode === 'series' ? lead?.referenceImage?.url : undefined};
+  return {...s, shots, referenceImageUrl: lead?.referenceImage?.url || s.referenceImageUrl};
 }
 
 function shotPrompt(s: Scene, prev: Scene | undefined, total: number, j: number, n: number, cast: Character[], ctx: PromptContext) {
@@ -66,6 +66,7 @@ function shotPrompt(s: Scene, prev: Scene | undefined, total: number, j: number,
   const lines = ctx.mode === 'education'
     ? [
         `Educational explainer video, ${frame}${ctx.style ? `, ${ctx.style}` : ''}.`,
+        cast.length && `Characters: ${cast.map(characterCard).join(' | ')}`,
         `Learning beat ${s.index + 1} of ${total}: ${clip(s.visual, 700)}`,
         'Visualise exactly this content with clear demonstrations. Do not depict facts that are not in the text.',
         shot,

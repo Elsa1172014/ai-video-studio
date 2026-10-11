@@ -17,7 +17,7 @@ export const hash = (v: unknown) => createHash('sha256').update(JSON.stringify(v
 // ---------- owners (episode / educational project) ----------
 type Owner = {
   kind: OwnerKind; id: string; seriesId?: string; storyboard?: Storyboard; aspectRatio: AspectRatio;
-  strictDuration?: boolean; language: 'ar' | 'en'; narratorVoice?: VoiceRef; characters: Character[];
+  direction?: import('@/lib/creative').FilmDirection; strictDuration?: boolean; language: 'ar' | 'en'; narratorVoice?: VoiceRef; characters: Character[];
 };
 
 export async function loadOwner(kind: OwnerKind, id: string): Promise<Owner> {
@@ -27,7 +27,7 @@ export async function loadOwner(kind: OwnerKind, id: string): Promise<Owner> {
     return {kind, id, seriesId: e.seriesId, storyboard: e.storyboard, aspectRatio: e.aspectRatio, language: s.language, narratorVoice: s.narratorVoice, characters};
   }
   const p = await getProject(id);
-  return {kind, id, strictDuration: (p.durationMode ?? 'fit') === 'fit', storyboard: p.storyboard, aspectRatio: p.aspectRatio, language: p.language, narratorVoice: p.narratorVoice, characters: []};
+  return {kind, id, direction: p.direction, strictDuration: (p.durationMode ?? 'fit') === 'fit', storyboard: p.storyboard, aspectRatio: p.aspectRatio, language: p.language, narratorVoice: p.narratorVoice, characters: p.direction?.characters || []};
 }
 
 export const listJobs = async (ownerId: string) =>
@@ -128,8 +128,8 @@ export async function createJob(kind: OwnerKind, ownerId: string, req: {type: Jo
     const scenes = o.storyboard?.scenes || [];
     if (!scenes.length) throw new HttpError(400, 'أنشئ مخطط المشاهد أولًا.');
     const f = frame(o.aspectRatio);
-    input = {strictDuration: !!o.strictDuration, width: f.renderWidth, height: f.renderHeight, fps: 24, scenes: scenes.map(s => ({
-      sceneId: s.id, duration: s.duration,
+    input = {method: o.direction?.method || 'cinematic', music: o.direction?.music || 'none', musicUrl: o.direction?.musicUrl, musicVolume: o.direction?.musicVolume ?? 0.12, format: o.direction?.format || 'explainer', style: o.direction?.style, execution: o.direction?.execution, strictDuration: !!o.strictDuration, width: f.renderWidth, height: f.renderHeight, fps: 24, scenes: scenes.map(s => ({
+      sceneId: s.id, duration: s.duration, title: s.idea || s.title, narration: s.narration || s.dialogue.map(d=>d.text).join(' '), evidence: s.evidence || [], visual: s.visual, images: o.characters.filter(c=>s.characterIds.includes(c.id)&&c.referenceImage).map(c=>({url:c.referenceImage!.url,name:c.name,role:c.role||''})),
       shots: s.shots.map(sh => videoInput(o, s, sh.id)),
       voice: s.narration.trim() || s.dialogue.length ? audioInput(o, s).input : undefined,
     }))};
@@ -172,12 +172,12 @@ export async function refreshJob(id: string): Promise<Job> {
     return db.put('job', job.id, job.ownerId, {...job, error: e instanceof Error ? e.message : 'Status check failed', updatedAt: now()});
   }
   if (r.status === job.status && !r.outputUrl) {
-    if (job.progress !== r.message) return db.put('job', job.id, job.ownerId, {...job, progress: r.message, error: undefined, updatedAt: now()});
+    if (job.progress !== r.message || job.progressPercent !== r.progressPercent || job.etaSeconds !== r.etaSeconds) return db.put('job', job.id, job.ownerId, {...job, progress: r.message, progressPercent:r.progressPercent, etaSeconds:r.etaSeconds, stage:r.stage, error: undefined, updatedAt: now()});
     if (job.error) return db.put('job', job.id, job.ownerId, {...job, error: undefined, updatedAt: now()});
     return job;
   }
   if (r.status === 'completed' && r.outputUrl) job = await finish(job, r.outputUrl);
-  else job = {...job, status: r.status, progress: r.message, error: r.status === 'failed' ? r.message || 'Generation failed' : undefined, updatedAt: now()};
+  else job = {...job, status: r.status, progress: r.message, progressPercent:r.progressPercent, etaSeconds:r.etaSeconds, stage:r.stage, error: r.status === 'failed' ? r.message || 'Generation failed' : undefined, updatedAt: now()};
   return db.put('job', job.id, job.ownerId, job);
 }
 
