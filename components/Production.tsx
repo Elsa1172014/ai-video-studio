@@ -1,5 +1,5 @@
 'use client';
-import {arabicLabel, arabicNotice} from '@/lib/arabic';
+import {arabicLabel, arabicNotice, arabicCount} from '@/lib/arabic';
 // Generation, voice and final render for one stored episode or educational project.
 // All state lives on the server (jobs); this component polls it, so a refresh resumes.
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -115,7 +115,7 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
       <div>
         <p className="text-xs text-purple-400">الإنتاج الكامل · يُحفظ تقدمك تلقائيًا</p>
         <h2 className="font-bold">توليد المشاهد والصوت وإخراج الفيديو</h2>
-        <p className="mt-1 text-xs text-slate-400">{scenes.length} مشاهد · {shots.length} لقطات · {doneClips}/{shots.length} لقطات جاهزة · الحالة: {arabicLabel(view?.status)}</p>
+        <p className="mt-1 text-xs text-slate-400">{arabicCount(scenes.length, 'scene')} · {arabicCount(shots.length, 'shot')} · {doneClips}/{arabicCount(shots.length, 'shot')} جاهزة · الحالة: {arabicLabel(view?.status)}</p>
       </div>
       <div className="flex flex-wrap gap-2">
         {running ? <button onClick={stopAll} className="btn ghost">إيقاف قائمة الانتظار مؤقتًا</button>

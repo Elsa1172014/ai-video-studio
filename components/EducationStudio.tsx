@@ -1,4 +1,5 @@
 'use client';
+import {arabicCount} from '@/lib/arabic';
 // الاستوديو التعليمي: project -> source -> storyboard -> generate -> review/retry -> final render.
 import {useCallback, useEffect, useState} from 'react';
 import type {AspectRatio, EducationProject} from '@/lib/types';
@@ -75,7 +76,7 @@ export default function EducationStudio() {
       <input dir="auto" value={title} onChange={e => setTitle(e.target.value)} className="field mt-5" placeholder="عنوان الدرس"/>
       <textarea dir="auto" value={source} onChange={e => setSource(e.target.value)} className="field mt-4 min-h-48" placeholder="ألصق النص التعليمي كاملًا هنا. نحافظ على المعلومات والمعنى، وتُروى كل جملة كما كتبتها."/>
       <div className="mt-4 flex flex-wrap gap-3">
-        <select value={minutes} onChange={e => setMinutes(Number(e.target.value))} className="ghost btn">{MINUTES.map(m => <option key={m} value={m}>{m < 1 ? `${m * 60} ثانية` : `${m} دقيقة`}</option>)}</select>
+        <select value={minutes} onChange={e => setMinutes(Number(e.target.value))} className="ghost btn">{MINUTES.map(m => <option key={m} value={m}>{m < 1 ? arabicCount(m * 60, 'second') : arabicCount(m, 'minute')}</option>)}</select>
         <select value={aspect} onChange={e => setAspect(e.target.value as AspectRatio)} className="ghost btn"><option value="16:9">أفقي 16:9</option><option value="9:16">رأسي 9:16</option><option value="1:1">مربع 1:1</option></select>
         <input value={voice} onChange={e => setVoice(e.target.value)} className="ghost btn w-44 font-normal" placeholder="معرّف صوت الراوي"/>
         <button onClick={() => run('جارٍ الحفظ…', async () => {await save();})} disabled={!!busy || source.trim().length < 3} className="btn ghost disabled:opacity-40">{project ? 'حفظ التعديلات' : 'حفظ المشروع'}</button>

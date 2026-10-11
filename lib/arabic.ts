@@ -34,3 +34,13 @@ export function arabicNotice(value?: string): string {
   // Preserve Arabic messages; do not expose raw service errors as English UI copy.
   return /[\u0600-\u06ff]/.test(value) ? value : 'تعذّر إكمال العملية. حاول مرة أخرى أو راجع إعدادات الخدمة.';
 }
+
+export function arabicCount(n: number, unit: 'scene' | 'shot' | 'minute' | 'second'): string {
+  const forms = {
+    scene: ['مشهد واحد', 'مشهدان', 'مشاهد', 'مشهدًا'],
+    shot: ['لقطة واحدة', 'لقطتان', 'لقطات', 'لقطة'],
+    minute: ['دقيقة واحدة', 'دقيقتان', 'دقائق', 'دقيقة'],
+    second: ['ثانية واحدة', 'ثانيتان', 'ثوانٍ', 'ثانية'],
+  }[unit];
+  return n === 1 ? forms[0] : n === 2 ? forms[1] : `${n} ${n >= 3 && n <= 10 ? forms[2] : forms[3]}`;
+}

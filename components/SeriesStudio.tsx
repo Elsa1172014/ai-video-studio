@@ -1,4 +1,5 @@
 'use client';
+import {arabicCount} from '@/lib/arabic';
 // استوديو المسلسلات: Series -> Character Bible -> Episode -> Storyboard -> Generate -> Review/retry
 // -> Final render -> Save memory -> Next episode (which receives that memory automatically).
 import {useCallback, useEffect, useState} from 'react';
@@ -121,7 +122,7 @@ export default function SeriesStudio() {
             {context.previousEpisodes.some(p => !p.memory) && <p className="mt-2 text-amber-300">بعض الحلقات السابقة ليس لها ذاكرة محفوظة بعد.</p>}
           </div>}
           <div className="mt-4 flex flex-wrap gap-3">
-            <select value={draft.minutes} onChange={e => setDraft({...draft, minutes: Number(e.target.value)})} className="ghost btn">{MINUTES.map(m => <option key={m} value={m}>{m < 1 ? `${m * 60} ثانية` : `${m} دقيقة`}</option>)}</select>
+            <select value={draft.minutes} onChange={e => setDraft({...draft, minutes: Number(e.target.value)})} className="ghost btn">{MINUTES.map(m => <option key={m} value={m}>{m < 1 ? arabicCount(m * 60, 'second') : arabicCount(m, 'minute')}</option>)}</select>
             {!episode && <button onClick={startEpisode} disabled={!!busy || !draft.title.trim() || draft.goal.trim().length < 3} className="btn primary disabled:opacity-40">{busy || 'إنشاء الحلقة'}</button>}
             {episode && <>
               <button onClick={saveEpisode} disabled={!!busy} className="btn ghost disabled:opacity-40">حفظ</button>

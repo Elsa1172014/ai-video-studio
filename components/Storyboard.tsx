@@ -1,5 +1,5 @@
 'use client';
-import {arabicLabel, arabicNotice} from '@/lib/arabic';
+import {arabicLabel, arabicNotice, arabicCount} from '@/lib/arabic';
 // Storyboard review and per-scene editing. Saving a scene regenerates only that scene's shots.
 import {useState} from 'react';
 import type {Character, OwnerKind, Scene, Storyboard as Board} from '@/lib/types';
@@ -50,7 +50,7 @@ export default function Storyboard({kind, id, board, characters = [], onChange}:
   return <div className="card mt-5 p-5">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><p className="text-xs text-purple-400">{kind === 'episode' ? 'مخطط مشاهد الحلقة' : 'مخطط المشاهد التعليمية'}</p>
-        <h2 className="text-xl font-bold">{board.scenes.length} مشاهد · {Math.floor(total / 60)}:{String(total % 60).padStart(2, '0')} دقيقة</h2></div>
+        <h2 className="text-xl font-bold">{arabicCount(board.scenes.length, 'scene')} · {Math.floor(total / 60)}:{String(total % 60).padStart(2, '0')} دقيقة</h2></div>
       <span className="text-xs text-slate-500">{board.planner === 'llm' ? 'المخرج الذكي' : 'المخرج القائم على قواعد ثابتة'} · ~{board.narrationSeconds} ثانية من التعليق الصوتي</span>
     </div>
     {board.warnings.map(w => <p key={w} className="mt-2 text-xs text-amber-300">{arabicNotice(w)}</p>)}
@@ -58,7 +58,7 @@ export default function Storyboard({kind, id, board, characters = [], onChange}:
     <div className="mt-4 grid gap-3">
       {board.scenes.map(s => <div key={s.id} className="rounded-xl border border-white/10 p-4">
         <div className="flex items-start justify-between gap-3">
-          <div><b>{s.index + 1}. {s.title}</b><p className="mt-1 text-xs text-slate-500">{s.duration} ث · {s.shots.length} لقطات{s.phase ? ` · ${arabicLabel(s.phase)}` : ''}{names(s).length ? ` · ${names(s).join(', ')}` : ''}{s.referenceImageUrl ? ' · صورة مرجعية' : ''}</p></div>
+          <div><b>{s.index + 1}. {s.title}</b><p className="mt-1 text-xs text-slate-500">{s.duration} ث · {arabicCount(s.shots.length, 'shot')}{s.phase ? ` · ${arabicLabel(s.phase)}` : ''}{names(s).length ? ` · ${names(s).join(', ')}` : ''}{s.referenceImageUrl ? ' · صورة مرجعية' : ''}</p></div>
           {editing !== s.id && <button className="text-xs text-purple-300" onClick={() => setEditing(s.id)}>تعديل</button>}
         </div>
         {editing === s.id ? <SceneEditor scene={s} characters={characters} onSave={p => save(s, p)} onCancel={() => setEditing(null)}/> : <>

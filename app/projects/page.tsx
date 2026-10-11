@@ -1,4 +1,5 @@
 'use client';
+import {arabicCount} from '@/lib/arabic';
 
 import Link from 'next/link';
 import {useEffect, useState} from 'react';
@@ -70,7 +71,7 @@ export default function Projects() {
           <div className="card p-5" key={p.id}>
             <h3 dir="auto" className="font-bold">{p.title}</h3>
             <p dir="auto" className="mt-2 line-clamp-2 text-sm text-slate-400">{p.sourceText}</p>
-            <p className="mt-4 text-xs text-slate-500">{p.storyboard ? `${p.storyboard.scenes.length} مشاهد` : 'لم يُنشأ مخطط المشاهد'} · {p.minutes} دقيقة</p>
+            <p className="mt-4 text-xs text-slate-500">{p.storyboard ? arabicCount(p.storyboard.scenes.length, 'scene') : 'لم يُنشأ مخطط المشاهد'} · {arabicCount(p.minutes, 'minute')}</p>
             <div className="mt-4 flex gap-4 text-xs"><Link className="text-purple-300" href={`/?project=${p.id}`}>فتح</Link><button type="button" onClick={() => remove('projects', p.id, p.title)} className="text-red-400">حذف</button></div>
           </div>
         )) : <div className="card p-6 text-sm text-slate-400">لم تُنشئ أي درس بعد.</div>}
