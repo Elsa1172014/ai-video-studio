@@ -87,5 +87,26 @@ jobs:
                   line = re.sub(r'[A-Za-z0-9_-]{40,}', '[long value redacted]', line)
                   print(line)
           PY
+          "$STUDIO_PY" - <<'PYREMOTE'
+          from pathlib import Path
+          import json, re
+          def clean(text):
+              text=re.sub(r'(?i)(token|password|secret|authorization|bearer|api[_-]?key)[^\n]*', '[credential redacted]', text)
+              return re.sub(r'https://[^\s]+[?][^\s]+', '[query URL redacted]', text)
+          jobs=Path('/workspace/ai-video-output/jobs')
+          if jobs.exists():
+              for p in sorted(jobs.glob('*.json'),key=lambda p:p.stat().st_mtime)[-8:]:
+                  d=json.loads(p.read_text()); print('Worker job:',clean(json.dumps({k:d.get(k) for k in ('jobId','kind','status','message')})))
+          for p in Path('/proc').iterdir():
+              if not p.name.isdigit(): continue
+              try:
+                  cmd=(p/'cmdline').read_bytes()
+                  if b'/opt/Wan2.2/generate.py' not in cmd: continue
+                  print('Wan subprocess PID:',p.name)
+                  with (p/'fd/1').open('rb') as log:
+                      log.seek(0,2); log.seek(max(0,log.tell()-5000))
+                      print(clean(log.read(5000).decode(errors='replace')))
+              except (FileNotFoundError,PermissionError,OSError): pass
+          PYREMOTE
           REMOTE
           printf '%s\n' 'SSH and CUDA passed; host-only transport key prepared. No inference requested.' >> "$GITHUB_STEP_SUMMARY"

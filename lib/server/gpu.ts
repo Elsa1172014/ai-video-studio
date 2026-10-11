@@ -117,6 +117,10 @@ export async function health() {
       const data = await r.json();
       if (data.ok !== true || data.gpu?.available !== true) return {configured: true, ok: false, provider: mode, message: 'Worker reachable, but CUDA GPU is not ready.'};
       if (process.env.VIDEO_PROVIDER === 'wan' && data.wan?.ready !== true) return {configured: true, ok: false, provider: mode, message: 'Worker reachable, but Wan runtime/weights are not ready.'};
+      // /health is public: prove that our bearer key works on a read-only route.
+      const auth = await fetch(`${legacyBase()}/jobs/00000000-0000-0000-0000-000000000000`, {headers: headers(false), cache: 'no-store', signal: AbortSignal.timeout(10_000)});
+      if (auth.status === 401 || auth.status === 403) return {configured: true, ok: false, provider: mode, httpStatus: auth.status, message: 'GPU authentication failed. Check the matching API key on the worker and Vercel.'};
+      if (auth.status !== 404) return {configured: true, ok: false, provider: mode, httpStatus: auth.status, message: 'Worker authentication probe returned an unexpected response.'};
     }
     return {configured: true, ok: r.ok, provider: mode, httpStatus: r.status};
   } catch (e) {

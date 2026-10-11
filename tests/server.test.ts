@@ -86,7 +86,21 @@ describe('gpu normalisation', () => {
       mock.mockResolvedValueOnce(Response.json({ok: true, gpu: {available: true}, wan: {ready: false}}));
       expect(await health()).toMatchObject({ok: false, message: expect.stringContaining('Wan')});
       mock.mockResolvedValueOnce(Response.json({ok: true, gpu: {available: true}, wan: {ready: true}}));
+      mock.mockResolvedValueOnce(Response.json({detail: 'Job not found'}, {status: 404}));
       expect(await health()).toMatchObject({ok: true});
+    } finally {vi.unstubAllGlobals(); vi.unstubAllEnvs();}
+  });
+  it('rejects an invalid bearer key even when public health is ready', async () => {
+    vi.stubEnv('GPU_PROVIDER', 'vast'); vi.stubEnv('VIDEO_PROVIDER', 'wan');
+    vi.stubEnv('GPU_API_URL', 'https://worker.example'); vi.stubEnv('GPU_API_KEY', 'wrong-key');
+    const mock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ok: true, gpu: {available: true}, wan: {ready: true}}))
+      .mockResolvedValueOnce(Response.json({detail: 'Invalid API key'}, {status: 401}));
+    vi.stubGlobal('fetch', mock);
+    try {
+      const {health} = await import('@/lib/server/gpu');
+      expect(await health()).toMatchObject({ok: false, httpStatus: 401, message: expect.stringContaining('authentication')});
+      expect(mock.mock.calls[1][0]).toBe('https://worker.example/jobs/00000000-0000-0000-0000-000000000000');
     } finally {vi.unstubAllGlobals(); vi.unstubAllEnvs();}
   });
   it('normalises RunPod states', async () => {
