@@ -39,3 +39,13 @@ Existing GitHub validation at baseline succeeded: https://github.com/Elsa1172014
 All fixture video files were FFmpeg test patterns, not generated Wan footage. Production must remain blocked pending the live acceptance gates in VAST_WAN.md.
 
 Scope note: the working generation paths are Educational Studio and Series Studio. The older /studio page still contains prototype Avatar/Dubbing controls; /api/dub explicitly returns 501. Those optional features are not a completed dubbing/lip-sync product and are not covered by the Wan text-to-video acceptance tests.
+
+## Paid-host follow-up — 11 October 2026
+
+User funded Vast with USD 5 and explicitly approved the A40 rental with auto top-up still enabled. Rented instance 55356791 on verified host 560104: A40 (45 GB visible VRAM), 128.6 GB allocated CPU RAM, 120 GB container disk. Displayed total USD 0.500/hour includes GPU USD 0.467/hour and disk USD 0.034/hour (rounded); bandwidth billed separately. Auto top-up was not disabled and the saved card was retained at the user's request. A bank-side online-shopping restriction is not a verified Vast spending cap.
+
+Created a private PyTorch test template, disabled direct Jupyter HTTPS requiring a local TLS certificate, and removed an invalid port 72299 from its Docker options. After explicit user approval registered a dedicated Ed25519 SSH public key on this instance (key ID 1539128). No private key, GPU bearer key or Jupyter session token is included in this repository.
+
+Actual deployment is blocked by access: local SSH DNS resolution fails and a socket to the displayed machine address returns Network is unreachable. The authenticated Vast console works, but Jupyter gateway navigation repeatedly times out in the cloud browser. Instance logs show base-image startup package installation; no successful application install or CUDA command execution is established.
+
+Stopped GPU after both connection attempts and verified the Inactive/Start instance controls and USD 0.034/hour disk-only rate. Last observed balance USD 4.94. Storage costs continue at about USD 0.80/day while stopped. No Wan weights downloaded, real inference submitted, HTTPS GPU endpoint configured or Production merged. Resuming requires a working remote terminal; do not leave GPU running while access is unresolved.
