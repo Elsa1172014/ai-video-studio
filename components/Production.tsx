@@ -47,7 +47,7 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
   // restore + persist the auto-run queue (per viewer convenience; job state itself is server-side)
   useEffect(() => {
     alive.current = true;
-    try {const a = JSON.parse(localStorage.getItem(autoKey(queueId)) || 'null'); if (a) setAuto(a);} catch {}
+    try {const a = JSON.parse(localStorage.getItem(autoKey(queueId)) || 'null'); setAuto(a || {video: false, audio: false, render: false});} catch {}
     load().catch(e => setError(errorText(e)));
     return () => {alive.current = false;};
   }, [queueId, load]);

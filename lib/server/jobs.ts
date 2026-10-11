@@ -128,7 +128,7 @@ export async function createJob(kind: OwnerKind, ownerId: string, req: {type: Jo
     const scenes = o.storyboard?.scenes || [];
     if (!scenes.length) throw new HttpError(400, 'أنشئ مخطط المشاهد أولًا.');
     const f = frame(o.aspectRatio);
-    input = {strictDuration: o.strictDuration, width: f.renderWidth, height: f.renderHeight, fps: 24, scenes: scenes.map(s => ({
+    input = {strictDuration: !!o.strictDuration, width: f.renderWidth, height: f.renderHeight, fps: 24, scenes: scenes.map(s => ({
       sceneId: s.id, duration: s.duration,
       shots: s.shots.map(sh => videoInput(o, s, sh.id)),
       voice: s.narration.trim() || s.dialogue.length ? audioInput(o, s).input : undefined,
@@ -213,6 +213,7 @@ export async function production(kind: OwnerKind, id: string): Promise<Productio
   if (jobs.some(j => j.type !== 'render' && ACTIVE.has(j.status))) status = 'generating';
   else if (final && ACTIVE.has(final.status)) status = 'rendering';
   else if (final?.status === 'completed') status = 'completed';
+  else if (final?.status === 'failed') status = 'failed';
   else if (jobs.some(j => j.type === 'video') && jobs.filter(j => j.type === 'video').every(j => j.status === 'failed')) status = 'failed';
   return {kind, id, status, jobs, final};
 }
