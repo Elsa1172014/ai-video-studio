@@ -17,7 +17,7 @@ for path in pathlib.Path('/workspace/ai-video-output/jobs').glob('*.json'):
 if active:raise SystemExit('Worker is busy; refusing to interrupt '+str(len(active))+' active job(s).')
 print('Worker idle: safe to update.')
 PY
-/venv/studio/bin/python -m pip install --quiet Pillow==11.1.0
+uv pip install --python /venv/studio/bin/python --quiet Pillow==11.1.0
 /venv/studio/bin/python -m compileall -q "$STUDIO_STAGE/worker"
 (cd "$STUDIO_STAGE" && PYTHONPATH=worker /venv/studio/bin/python -m unittest worker/test_duration.py worker/test_motion.py -v)
 cp -a "$STUDIO_STAGE/worker/." /workspace/ai-video-studio/worker/
