@@ -63,7 +63,7 @@ export default function EducationStudio() {
     const p = project
       ? await api<EducationProject>(`/api/projects/${project.id}`, {method: 'PATCH', json: payload()})
       : await api<EducationProject>('/api/projects', {method: 'POST', json: payload()});
-    setProject(p); setTitle(p.title); setQuery({project: p.id});
+    setProject(p); setDirection(p.direction); setTitle(p.title); setQuery({project: p.id});
     await refreshList();
     return p;
   }
