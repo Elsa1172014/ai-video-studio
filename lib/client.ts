@@ -1,4 +1,5 @@
 'use client';
+import {arabicNotice} from './arabic';
 // Small typed fetch helpers for the studio UI.
 
 export class ApiError extends Error {
@@ -23,11 +24,11 @@ export async function api<T = any>(url: string, init?: RequestInit & {json?: unk
   return data as T;
 }
 
-export const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong');
+export const errorText = (e: unknown) => arabicNotice(e instanceof Error ? e.message : 'حدث خطأ غير متوقع');
 
 /** Browser-side downscale so reference photos fit the 4 MB upload limit. */
 export async function downscaleImage(file: File, max = 1536): Promise<Blob> {
-  if (!file.type.startsWith('image/')) throw new Error('Choose an image file');
+  if (!file.type.startsWith('image/')) throw new Error('اختر ملف صورة');
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
   if (scale === 1 && file.size < 3.5 * 1024 * 1024 && /jpe?g|png|webp/.test(file.type)) return file;
@@ -35,7 +36,7 @@ export async function downscaleImage(file: File, max = 1536): Promise<Blob> {
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
   canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return new Promise((res, rej) => canvas.toBlob(b => (b ? res(b) : rej(new Error('Image conversion failed'))), 'image/jpeg', 0.9));
+  return new Promise((res, rej) => canvas.toBlob(b => (b ? res(b) : rej(new Error('تعذّر تجهيز الصورة'))), 'image/jpeg', 0.9));
 }
 
 /** Plays worker-hosted http:// outputs through the same-origin proxy (avoids mixed content). */

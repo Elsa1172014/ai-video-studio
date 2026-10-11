@@ -1,4 +1,5 @@
 'use client';
+import {arabicLabel, arabicNotice} from '@/lib/arabic';
 // Storyboard review and per-scene editing. Saving a scene regenerates only that scene's shots.
 import {useState} from 'react';
 import type {Character, OwnerKind, Scene, Storyboard as Board} from '@/lib/types';
@@ -20,19 +21,19 @@ function SceneEditor({scene, characters, onSave, onCancel}: {scene: Scene; chara
     try {await onSave({narration, visual, duration, ...(characters.length ? {dialogue: lines} : {})});} finally {setBusy(false);}
   }
   return <div className="mt-3 space-y-2">
-    <label className="block text-xs text-slate-500">Narration (voice-over)</label>
+    <label className="block text-xs text-slate-500">التعليق الصوتي</label>
     <textarea dir="auto" className="field min-h-20" value={narration} onChange={e => setNarration(e.target.value)}/>
-    {characters.length > 0 && <><label className="block text-xs text-slate-500">Dialogue · one line per speaker, “Name: line”</label>
+    {characters.length > 0 && <><label className="block text-xs text-slate-500">الحوار · سطر لكل متحدث بصيغة «الاسم: الحوار»</label>
       <textarea dir="auto" className="field min-h-20" value={dialogue} onChange={e => setDialogue(e.target.value)}/></>}
-    <label className="block text-xs text-slate-500">Visual direction</label>
+    <label className="block text-xs text-slate-500">وصف المشهد البصري</label>
     <textarea dir="auto" className="field min-h-20" value={visual} onChange={e => setVisual(e.target.value)}/>
     <div className="flex items-center gap-3">
-      <label className="text-xs text-slate-500">Duration (s)</label>
+      <label className="text-xs text-slate-500">المدة بالثواني</label>
       <input type="number" min={5} max={120} className="field w-24 p-2" value={duration} onChange={e => setDuration(Number(e.target.value))}/>
-      <button onClick={save} disabled={busy} className="btn primary disabled:opacity-40">{busy ? 'Saving…' : 'Save scene'}</button>
-      <button onClick={onCancel} className="btn ghost">Cancel</button>
+      <button onClick={save} disabled={busy} className="btn primary disabled:opacity-40">{busy ? 'جارٍ الحفظ…' : 'حفظ المشهد'}</button>
+      <button onClick={onCancel} className="btn ghost">إلغاء</button>
     </div>
-    <p className="text-xs text-slate-500">Saving replaces this scene’s clips and voice track; other scenes keep theirs.</p>
+    <p className="text-xs text-slate-500">حفظ التعديل يستبدل لقطات هذا المشهد وصوته فقط، مع الاحتفاظ ببقية المشاهد.</p>
   </div>;
 }
 
@@ -48,22 +49,22 @@ export default function Storyboard({kind, id, board, characters = [], onChange}:
   }
   return <div className="card mt-5 p-5">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div><p className="text-xs text-purple-400">{kind === 'episode' ? 'EPISODE STORYBOARD' : 'LEARNING STORYBOARD'}</p>
-        <h2 className="text-xl font-bold">{board.scenes.length} scenes · {Math.floor(total / 60)}:{String(total % 60).padStart(2, '0')} min</h2></div>
-      <span className="text-xs text-slate-500">{board.planner === 'llm' ? 'AI director' : 'Deterministic director'} · ~{board.narrationSeconds}s of speech</span>
+      <div><p className="text-xs text-purple-400">{kind === 'episode' ? 'مخطط مشاهد الحلقة' : 'مخطط المشاهد التعليمية'}</p>
+        <h2 className="text-xl font-bold">{board.scenes.length} مشاهد · {Math.floor(total / 60)}:{String(total % 60).padStart(2, '0')} دقيقة</h2></div>
+      <span className="text-xs text-slate-500">{board.planner === 'llm' ? 'المخرج الذكي' : 'المخرج القائم على قواعد ثابتة'} · ~{board.narrationSeconds} ثانية من التعليق الصوتي</span>
     </div>
-    {board.warnings.map(w => <p key={w} className="mt-2 text-xs text-amber-300">{w}</p>)}
+    {board.warnings.map(w => <p key={w} className="mt-2 text-xs text-amber-300">{arabicNotice(w)}</p>)}
     {error && <p className="mt-2 text-sm text-red-300">{error}</p>}
     <div className="mt-4 grid gap-3">
       {board.scenes.map(s => <div key={s.id} className="rounded-xl border border-white/10 p-4">
         <div className="flex items-start justify-between gap-3">
-          <div><b>{s.index + 1}. {s.title}</b><p className="mt-1 text-xs text-slate-500">{s.duration}s · {s.shots.length} shot{s.shots.length === 1 ? '' : 's'}{s.phase ? ` · ${s.phase}` : ''}{names(s).length ? ` · ${names(s).join(', ')}` : ''}{s.referenceImageUrl ? ' · reference image' : ''}</p></div>
-          {editing !== s.id && <button className="text-xs text-purple-300" onClick={() => setEditing(s.id)}>Edit</button>}
+          <div><b>{s.index + 1}. {s.title}</b><p className="mt-1 text-xs text-slate-500">{s.duration} ث · {s.shots.length} لقطات{s.phase ? ` · ${arabicLabel(s.phase)}` : ''}{names(s).length ? ` · ${names(s).join(', ')}` : ''}{s.referenceImageUrl ? ' · صورة مرجعية' : ''}</p></div>
+          {editing !== s.id && <button className="text-xs text-purple-300" onClick={() => setEditing(s.id)}>تعديل</button>}
         </div>
         {editing === s.id ? <SceneEditor scene={s} characters={characters} onSave={p => save(s, p)} onCancel={() => setEditing(null)}/> : <>
           {s.narration && <p dir="auto" className="mt-2 text-sm text-slate-300">{s.narration}</p>}
           {s.dialogue.map((d, k) => <p key={k} dir="auto" className="mt-1 text-sm"><span className="text-purple-300">{d.speaker}:</span> {d.text}</p>)}
-          {s.visual && s.visual !== s.narration && <p dir="auto" className="mt-2 text-xs text-slate-500">Visual: {s.visual}</p>}
+          {s.visual && s.visual !== s.narration && <p dir="auto" className="mt-2 text-xs text-slate-500">الوصف البصري: {s.visual}</p>}
         </>}
       </div>)}
     </div>

@@ -1,5 +1,5 @@
 'use client';
-// Educational Studio: project -> source -> storyboard -> generate -> review/retry -> final render.
+// الاستوديو التعليمي: project -> source -> storyboard -> generate -> review/retry -> final render.
 import {useCallback, useEffect, useState} from 'react';
 import type {AspectRatio, EducationProject} from '@/lib/types';
 import {api, errorText, getQuery, setQuery} from '@/lib/client';
@@ -55,7 +55,7 @@ export default function EducationStudio() {
     await refreshList();
     return p;
   }
-  const build = () => run('Directing…', async () => {
+  const build = () => run('جارٍ إعداد المشاهد…', async () => {
     const p = changed ? await save() : project!;
     setProject(await api<EducationProject>(`/api/projects/${p.id}/storyboard`, {method: 'POST'}));
   });
@@ -64,24 +64,24 @@ export default function EducationStudio() {
   return <>
     <div className="card p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm font-bold text-purple-400">EDUCATIONAL DIRECTOR</p>
-        <select className="ghost rounded-xl p-2 text-sm" value={project?.id || ''} onChange={e => run('Loading…', () => open(e.target.value || null))}>
-          <option value="">+ New lesson project</option>
+        <p className="text-sm font-bold text-purple-400">المخرج التعليمي</p>
+        <select className="ghost rounded-xl p-2 text-sm" value={project?.id || ''} onChange={e => run('جارٍ التحميل…', () => open(e.target.value || null))}>
+          <option value="">+ مشروع درس جديد</option>
           {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
         </select>
       </div>
-      <h1 className="mt-2 text-3xl font-bold">Paste the lesson. The studio builds the visual teaching flow.</h1>
-      {!durable && <p className="mt-2 text-xs text-amber-300">Saved to a local file (no DATABASE_URL). Fine for development; configure Postgres before relying on it in production.</p>}
-      <input dir="auto" value={title} onChange={e => setTitle(e.target.value)} className="field mt-5" placeholder="Lesson title"/>
-      <textarea dir="auto" value={source} onChange={e => setSource(e.target.value)} className="field mt-4 min-h-48" placeholder="Paste the complete educational text here. Facts and meaning are preserved: every sentence is narrated as written."/>
+      <h1 className="mt-2 text-3xl font-bold">ألصق نص الدرس ليحوّله الاستوديو إلى مشاهد تعليمية.</h1>
+      {!durable && <p className="mt-2 text-xs text-amber-300">الحفظ الحالي محلي ومؤقت؛ يلزم تفعيل قاعدة البيانات للحفظ الدائم.</p>}
+      <input dir="auto" value={title} onChange={e => setTitle(e.target.value)} className="field mt-5" placeholder="عنوان الدرس"/>
+      <textarea dir="auto" value={source} onChange={e => setSource(e.target.value)} className="field mt-4 min-h-48" placeholder="ألصق النص التعليمي كاملًا هنا. نحافظ على المعلومات والمعنى، وتُروى كل جملة كما كتبتها."/>
       <div className="mt-4 flex flex-wrap gap-3">
-        <select value={minutes} onChange={e => setMinutes(Number(e.target.value))} className="ghost btn">{MINUTES.map(m => <option key={m} value={m}>{m < 1 ? `${m * 60} seconds` : `${m} minute${m === 1 ? '' : 's'}`}</option>)}</select>
-        <select value={aspect} onChange={e => setAspect(e.target.value as AspectRatio)} className="ghost btn"><option value="16:9">16:9 landscape</option><option value="9:16">9:16 vertical</option><option value="1:1">1:1 square</option></select>
-        <input value={voice} onChange={e => setVoice(e.target.value)} className="ghost btn w-44 font-normal" placeholder="Narrator voice ID"/>
-        <button onClick={() => run('Saving…', async () => {await save();})} disabled={!!busy || source.trim().length < 3} className="btn ghost disabled:opacity-40">{project ? 'Save changes' : 'Save project'}</button>
-        <button onClick={build} disabled={!!busy || source.trim().length < 3} className="btn primary disabled:opacity-40">{busy || (project?.storyboard ? 'Rebuild storyboard' : 'Build educational storyboard')}</button>
+        <select value={minutes} onChange={e => setMinutes(Number(e.target.value))} className="ghost btn">{MINUTES.map(m => <option key={m} value={m}>{m < 1 ? `${m * 60} ثانية` : `${m} دقيقة`}</option>)}</select>
+        <select value={aspect} onChange={e => setAspect(e.target.value as AspectRatio)} className="ghost btn"><option value="16:9">أفقي 16:9</option><option value="9:16">رأسي 9:16</option><option value="1:1">مربع 1:1</option></select>
+        <input value={voice} onChange={e => setVoice(e.target.value)} className="ghost btn w-44 font-normal" placeholder="معرّف صوت الراوي"/>
+        <button onClick={() => run('جارٍ الحفظ…', async () => {await save();})} disabled={!!busy || source.trim().length < 3} className="btn ghost disabled:opacity-40">{project ? 'حفظ التعديلات' : 'حفظ المشروع'}</button>
+        <button onClick={build} disabled={!!busy || source.trim().length < 3} className="btn primary disabled:opacity-40">{busy || (project?.storyboard ? 'إعادة بناء مخطط المشاهد' : 'إنشاء مخطط المشاهد التعليمية')}</button>
       </div>
-      {project?.storyboard && changed && <p className="mt-2 text-xs text-amber-300">You changed the lesson. Rebuild the storyboard to use the new text.</p>}
+      {project?.storyboard && changed && <p className="mt-2 text-xs text-amber-300">عدّلت نص الدرس؛ أعد بناء مخطط المشاهد لتطبيق التعديلات.</p>}
       {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
     </div>
     {project?.storyboard && <>

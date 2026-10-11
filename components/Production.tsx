@@ -1,4 +1,5 @@
 'use client';
+import {arabicLabel, arabicNotice} from '@/lib/arabic';
 // Generation, voice and final render for one stored episode or educational project.
 // All state lives on the server (jobs); this component polls it, so a refresh resumes.
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -15,7 +16,7 @@ const autoKey = (id: string) => 'ai-video-auto-' + id;
 function Chip({job, label}: {job?: Job; label: string}) {
   const s = job?.status || 'pending';
   const color = s === 'completed' ? 'border-emerald-500/40 text-emerald-300' : s === 'failed' || s === 'cancelled' ? 'border-red-500/40 text-red-300' : s === 'pending' ? 'border-white/10 text-slate-500' : 'border-purple-500/50 text-purple-200 animate-pulse';
-  return <span title={job?.error || s} className={'rounded-lg border px-2 py-0.5 text-[11px] ' + color}>{label} · {s}</span>;
+  return <span title={job?.error ? arabicNotice(job.error) : arabicLabel(s)} className={'rounded-lg border px-2 py-0.5 text-[11px] ' + color}>{label} · {arabicLabel(s)}</span>;
 }
 
 export default function Production({kind, id, scenes, onComplete}: {kind: OwnerKind; id: string; scenes: Scene[]; onComplete?: () => void}) {
@@ -112,45 +113,45 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
   return <div className="card mt-5 p-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <p className="text-xs text-purple-400">FULL PRODUCTION · saved on the server</p>
-        <h2 className="font-bold">Generate, voice and render</h2>
-        <p className="mt-1 text-xs text-slate-400">{scenes.length} scenes · {shots.length} shots · {doneClips}/{shots.length} clips ready · status: {view?.status || '…'}</p>
+        <p className="text-xs text-purple-400">الإنتاج الكامل · يُحفظ تقدمك تلقائيًا</p>
+        <h2 className="font-bold">توليد المشاهد والصوت وإخراج الفيديو</h2>
+        <p className="mt-1 text-xs text-slate-400">{scenes.length} مشاهد · {shots.length} لقطات · {doneClips}/{shots.length} لقطات جاهزة · الحالة: {arabicLabel(view?.status)}</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        {running ? <button onClick={stopAll} className="btn ghost">Pause queue</button>
-          : !(allClips && final?.status === 'completed') && <button onClick={produceAll} disabled={!shots.length} className="btn primary disabled:opacity-40">{doneClips ? 'Resume production' : 'Produce full video'}</button>}
-        <button onClick={() => act(() => submit({type: 'render', force: final?.status === 'completed'}))} disabled={!allClips || jobs.some(ACTIVE)} className="btn ghost disabled:opacity-40">{final?.status === 'completed' ? 'Re-render' : 'Render final video'}</button>
+        {running ? <button onClick={stopAll} className="btn ghost">إيقاف قائمة الانتظار مؤقتًا</button>
+          : !(allClips && final?.status === 'completed') && <button onClick={produceAll} disabled={!shots.length} className="btn primary disabled:opacity-40">{doneClips ? 'استكمال الإنتاج' : 'إنتاج الفيديو كاملًا'}</button>}
+        <button onClick={() => act(() => submit({type: 'render', force: final?.status === 'completed'}))} disabled={!allClips || jobs.some(ACTIVE)} className="btn ghost disabled:opacity-40">{final?.status === 'completed' ? 'إعادة إخراج الفيديو' : 'إخراج الفيديو النهائي'}</button>
       </div>
     </div>
     <div className="mt-4 h-2 overflow-hidden rounded bg-white/10"><div className="h-full bg-purple-500 transition-all" style={{width: pct + '%'}}/></div>
     {error && <div className="mt-4 rounded-xl border border-red-500/30 p-3 text-sm text-red-300">{error}</div>}
-    {notes.map(n => <p key={n} className="mt-2 text-xs text-amber-300">{n}</p>)}
+    {notes.map(n => <p key={n} className="mt-2 text-xs text-amber-300">{arabicNotice(n)}</p>)}
 
     <div className="mt-4 space-y-2">
       {scenes.map(s => {
         const a = audioJob(s.id);
         return <div key={s.id} className="rounded-xl border border-white/10 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <b className="text-sm">{s.index + 1}. {s.title} <span className="font-normal text-slate-500">· {s.duration}s</span></b>
+            <b className="text-sm">{s.index + 1}. {s.title} <span className="font-normal text-slate-500">· {s.duration} ث</span></b>
             <div className="flex flex-wrap items-center gap-1.5">
               {s.shots.map((sh, k) => {
                 const j = shotJob(sh.id);
                 return <span key={sh.id} className="flex items-center gap-1">
-                  <Chip job={j} label={`shot ${k + 1}`}/>
-                  {!j && !auto.video && <button className="text-[11px] text-purple-300" onClick={() => act(() => submit({type: 'video', sceneId: s.id, shotId: sh.id}))}>generate</button>}
-                  {j && (j.status === 'failed' || j.status === 'cancelled') && <button className="text-[11px] text-purple-300" onClick={() => act(() => api(`/api/jobs/${j.id}/retry`, {method: 'POST'}))}>retry</button>}
-                  {j?.status === 'completed' && <button className="text-[11px] text-slate-500 hover:text-white" onClick={() => act(() => submit({type: 'video', sceneId: s.id, shotId: sh.id, force: true}))}>redo</button>}
-                  {ACTIVE(j) && <button className="text-[11px] text-slate-500 hover:text-white" onClick={() => act(() => api(`/api/jobs/${j!.id}/cancel`, {method: 'POST'}))}>cancel</button>}
+                  <Chip job={j} label={`لقطة ${k + 1}`}/>
+                  {!j && !auto.video && <button className="text-[11px] text-purple-300" onClick={() => act(() => submit({type: 'video', sceneId: s.id, shotId: sh.id}))}>توليد</button>}
+                  {j && (j.status === 'failed' || j.status === 'cancelled') && <button className="text-[11px] text-purple-300" onClick={() => act(() => api(`/api/jobs/${j.id}/retry`, {method: 'POST'}))}>إعادة المحاولة</button>}
+                  {j?.status === 'completed' && <button className="text-[11px] text-slate-500 hover:text-white" onClick={() => act(() => submit({type: 'video', sceneId: s.id, shotId: sh.id, force: true}))}>إعادة التوليد</button>}
+                  {ACTIVE(j) && <button className="text-[11px] text-slate-500 hover:text-white" onClick={() => act(() => api(`/api/jobs/${j!.id}/cancel`, {method: 'POST'}))}>إلغاء</button>}
                 </span>;
               })}
               {hasSpeech(s) && <span className="flex items-center gap-1">
-                <Chip job={a} label="voice"/>
-                {!a && !auto.audio && <button className="text-[11px] text-purple-300" onClick={() => act(() => submit({type: 'audio', sceneId: s.id}))}>generate</button>}
-                {a && (a.status === 'failed' || a.status === 'cancelled') && <button className="text-[11px] text-purple-300" onClick={() => act(() => api(`/api/jobs/${a.id}/retry`, {method: 'POST'}))}>retry</button>}
+                <Chip job={a} label="الصوت"/>
+                {!a && !auto.audio && <button className="text-[11px] text-purple-300" onClick={() => act(() => submit({type: 'audio', sceneId: s.id}))}>توليد</button>}
+                {a && (a.status === 'failed' || a.status === 'cancelled') && <button className="text-[11px] text-purple-300" onClick={() => act(() => api(`/api/jobs/${a.id}/retry`, {method: 'POST'}))}>إعادة المحاولة</button>}
               </span>}
             </div>
           </div>
-          {[...s.shots.map(sh => shotJob(sh.id)), a].filter(j => j?.error && (j.status === 'failed' || ACTIVE(j))).map(j => <p key={j!.id} className={'mt-2 text-xs ' + (ACTIVE(j) ? 'text-amber-300' : 'text-red-300')}>{ACTIVE(j) ? 'Status temporarily unavailable; retrying: ' : ''}{j!.error}</p>)}
+          {[...s.shots.map(sh => shotJob(sh.id)), a].filter(j => j?.error && (j.status === 'failed' || ACTIVE(j))).map(j => <p key={j!.id} className={'mt-2 text-xs ' + (ACTIVE(j) ? 'text-amber-300' : 'text-red-300')}>{ACTIVE(j) ? 'تعذّر تحديث الحالة مؤقتًا؛ جارٍ إعادة المحاولة: ' : ''}{arabicNotice(j!.error)}</p>)}
           <div className="mt-2 flex gap-2 overflow-x-auto">
             {s.shots.map(sh => {const u = playable(shotJob(sh.id)?.output?.url); return u ? <video key={sh.id} src={u} className="h-24 rounded-lg" controls preload="metadata"/> : null;})}
             {a?.status === 'completed' && a.output?.url && <audio src={a.output.url} controls className="h-10 self-center"/>}
@@ -160,14 +161,14 @@ export default function Production({kind, id, scenes, onComplete}: {kind: OwnerK
     </div>
 
     <div className="mt-5 rounded-xl border border-white/10 p-4">
-      <div className="flex items-center justify-between"><b>Final video</b><Chip job={final} label="render"/></div>
-      {final?.status === 'failed' && <p className="mt-2 text-sm text-red-300">{final.error} <button className="text-purple-300" onClick={() => act(() => api(`/api/jobs/${final.id}/retry`, {method: 'POST'}))}>Retry render</button></p>}
-      {!allClips && <p className="mt-2 text-xs text-slate-500">The final render unlocks when every shot has a completed clip. Scenes without a finished voice track are rendered silent.</p>}
+      <div className="flex items-center justify-between"><b>الفيديو النهائي</b><Chip job={final} label="الإخراج"/></div>
+      {final?.status === 'failed' && <p className="mt-2 text-sm text-red-300">{arabicNotice(final.error)} <button className="text-purple-300" onClick={() => act(() => api(`/api/jobs/${final.id}/retry`, {method: 'POST'}))}>إعادة محاولة الإخراج</button></p>}
+      {!allClips && <p className="mt-2 text-xs text-slate-500">يتاح الإخراج النهائي بعد اكتمال جميع اللقطات. المشاهد التي لم يكتمل صوتها ستُنتج بلا صوت.</p>}
       {finalUrl && <>
         <video className="mt-3 w-full rounded-xl" controls preload="metadata" src={finalUrl}/>
-        <a className="btn ghost mt-3 inline-block" href={finalUrl} target="_blank" rel="noreferrer">Open final MP4 ↗</a>
-        <a className="btn primary ml-3 mt-3 inline-block" href={getDownloadUrl(finalUrl)} download="ai-video-studio.mp4">Download MP4</a>
-        {final?.output && !final.output.durable && <p className="mt-2 text-xs text-amber-300">Stored on the GPU worker / local disk only. Configure durable storage to keep it permanently.</p>}
+        <a className="btn ghost mt-3 inline-block" href={finalUrl} target="_blank" rel="noreferrer">فتح الفيديو النهائي ↗</a>
+        <a className="btn primary ms-3 mt-3 inline-block" href={getDownloadUrl(finalUrl)} download="ai-video-studio.mp4">تنزيل الفيديو MP4</a>
+        {final?.output && !final.output.durable && <p className="mt-2 text-xs text-amber-300">الفيديو محفوظ مؤقتًا على خادم التوليد؛ يلزم الحفظ الدائم للاحتفاظ به.</p>}
       </>}
     </div>
   </div>;
