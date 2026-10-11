@@ -29,7 +29,7 @@ if not target.exists() or target.stat().st_size != asset['size']:
 assert target.stat().st_size == asset['size']
 pathlib.Path('/workspace/studio-flash-wheel-path').write_text(str(target))
 PY
-uv pip install "$(cat /workspace/studio-flash-wheel-path)" 'numpy<2' 'opencv-python==4.11.0.86' 'diffusers==0.33.1' 'transformers==4.51.3' 'accelerate==1.6.0' 'huggingface_hub==0.32.4' 'imageio[ffmpeg]' easydict ftfy dashscope imageio-ffmpeg -r "$STUDIO_REPO/worker/requirements.txt"
+uv pip install "$(cat /workspace/studio-flash-wheel-path)" 'numpy<2' 'opencv-python==4.11.0.86' 'diffusers==0.33.1' 'transformers==4.51.3' 'accelerate==1.6.0' 'huggingface_hub==0.32.4' 'imageio[ffmpeg]' easydict ftfy dashscope imageio-ffmpeg decord==0.6.0 peft==0.15.2 librosa==0.11.0 omegaconf==2.3.0 loguru sentencepiece -r "$STUDIO_REPO/worker/requirements.txt"
 python - <<'PY'
 import torch, flash_attn
 assert torch.cuda.is_available()
