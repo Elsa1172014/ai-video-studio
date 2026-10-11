@@ -51,7 +51,7 @@ export default function Storyboard({kind, id, board, characters = [], onChange}:
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><p className="text-xs text-purple-400">{kind === 'episode' ? 'مخطط مشاهد الحلقة' : 'مخطط المشاهد التعليمية'}</p>
         <h2 className="text-xl font-bold">{arabicCount(board.scenes.length, 'scene')} · {Math.floor(total / 60)}:{String(total % 60).padStart(2, '0')} دقيقة</h2></div>
-      <span className="text-xs text-slate-500">{board.planner === 'llm' ? 'المخرج الذكي' : 'المخرج القائم على قواعد ثابتة'} · ~{board.narrationSeconds} ثانية من التعليق الصوتي</span>
+      <span className="text-xs text-slate-500">{board.planner === 'llm' ? 'المخرج الذكي' : 'المخرج القائم على قواعد ثابتة'} · ~{arabicCount(board.narrationSeconds, 'second')} من التعليق الصوتي</span>
     </div>
     {board.warnings.map(w => <p key={w} className="mt-2 text-xs text-amber-300">{arabicNotice(w)}</p>)}
     {error && <p className="mt-2 text-sm text-red-300">{error}</p>}
