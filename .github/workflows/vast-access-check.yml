@@ -34,7 +34,7 @@ jobs:
             printf 'ready=false\n' >> "$GITHUB_OUTPUT"
             printf '%s\n' 'SSH credential absent. No remote connection attempted.' >> "$GITHUB_STEP_SUMMARY"
           fi
-      - name: Verify SSH, CUDA and service listeners
+      - name: Prepare encrypted credential transport and verify service listeners
         if: steps.credentials.outputs.ready == 'true'
         shell: bash
         run: |
@@ -53,9 +53,15 @@ jobs:
             root@ssh8.vast.ai 'bash -s' <<'REMOTE'
           set -euo pipefail
           printf '%s\n' 'SSH connected to the approved Vast Preview instance.'
-          printf '%s\n' '--- VAST INSTANCE OPERATING GUIDE ---'
-          cat /etc/vast-agents-guide.md
-          printf '%s\n' '--- END OPERATING GUIDE ---'
+          test "${CONTAINER_ID:-}" = 55356791
+          umask 077
+          if [ ! -f /workspace/studio-credential-transport.pem ]; then
+            openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out /workspace/studio-credential-transport.pem 2>/dev/null
+          fi
+          printf '%s\n' '--- CREDENTIAL TRANSPORT PUBLIC KEY ---'
+          openssl pkey -in /workspace/studio-credential-transport.pem -pubout
+          printf '%s\n' '--- END TRANSPORT PUBLIC KEY ---'
+          vast-capabilities | /venv/main/bin/python -c 'import json,sys; d=json.load(sys.stdin); print("Allocated ports:",json.dumps(d.get("instance",{}).get("open_ports",[])))'
           nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
           STUDIO_PY=python
           if [ -x /venv/main/bin/python ]; then STUDIO_PY=/venv/main/bin/python; fi
@@ -82,4 +88,4 @@ jobs:
                   print(line)
           PY
           REMOTE
-          printf '%s\n' 'SSH and CUDA checks passed. No packages, weights or inference jobs were requested.' >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' 'SSH and CUDA passed; host-only transport key prepared. No inference requested.' >> "$GITHUB_STEP_SUMMARY"
