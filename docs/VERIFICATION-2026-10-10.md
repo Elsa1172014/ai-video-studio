@@ -29,7 +29,7 @@ Free infrastructure prepared:
 - Latest pre-storage-report GitHub validation passed: https://github.com/Elsa1172014/ai-video-studio/actions/runs/38079861755
 
 Not verified:
-- Real Wan inference: payment is paused after card failure. The authorized test budget is USD 5 total. No GPU host rented, weights installed remotely or billable inference submitted.
+- Real Wan inference: the original payment blocker was resolved on 11 October; see the paid-host follow-up below. The authorized test budget is USD 5 total. No weights installed remotely or billable inference submitted.
 - The Vercel project/env connector works when teamId is omitted; protected fetch still fails (403). Authenticated browser testing verified actual Preview storage without weakening Deployment Protection.
 - After payment: rent the approved GPU, run setup/start, configure valid HTTPS, install the matching worker key and set the real Preview GPU_API_URL. No placeholder URL is inserted.
 - Real Wan MP4 playback/seeking/download, real worker restart/resume, narrated Educational production and two-episode Series continuity. Installation flags do not prove model loading/complete weights or inference quality.
@@ -49,3 +49,11 @@ Created a private PyTorch test template, disabled direct Jupyter HTTPS requiring
 Actual deployment is blocked by access: local SSH DNS resolution fails and a socket to the displayed machine address returns Network is unreachable. The authenticated Vast console works, but Jupyter gateway navigation repeatedly times out in the cloud browser. Instance logs show base-image startup package installation; no successful application install or CUDA command execution is established.
 
 Stopped GPU after both connection attempts and verified the Inactive/Start instance controls and USD 0.034/hour disk-only rate. Last observed balance USD 4.94. Storage costs continue at about USD 0.80/day while stopped. No Wan weights downloaded, real inference submitted, HTTPS GPU endpoint configured or Production merged. Resuming requires a working remote terminal; do not leave GPU running while access is unresolved.
+
+### User Start attempt and recovery — 11 October, 07:58 UTC
+
+The user pressed Start and the console confirmed Running. Later logs showed service log files and the instance portal startup banner, superseding the earlier incomplete package-installation observation; this is still not proof of working CUDA, Jupyter or Wan. The legacy Jupyter gateway rendered 504 Gateway Time-out. The console Open button reached a 502 Bad Gateway page stating "The remote server does not speak TLS". No certificate warning was bypassed and no authenticated service was weakened.
+
+Rebooted the existing container without deleting data. The console returned to Running and fresh logs showed base services starting. Retested the console-provided Jupyter terminal link after this state change; it still did not load a usable terminal. Local SSH remains unavailable because this execution environment cannot reach the remote network. No installation command or inference job was executed.
+
+Stopped the GPU again and verified Current Status Exited, Intended Status Stopped, the Inactive/Start controls and USD 0.034/hour disk-only pricing. Latest observed credit USD 4.86. Container storage continues costing about USD 0.80/day; automatic top-up and the retained payment method were not changed. The blocker is remote terminal/service access, not unpaid credit. Real GPU setup, HTTPS worker-to-Preview connection and real Wan MP4 acceptance testing remain incomplete. Production remains untouched.
