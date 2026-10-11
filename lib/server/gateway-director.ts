@@ -1,7 +1,11 @@
 import * as z from 'zod/v4';
 import {HttpError} from './http';
+import {getVercelOidcTokenSync} from '@vercel/oidc';
 
-export const gatewayToken = () => process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+export const gatewayToken = () => {
+  if(process.env.AI_GATEWAY_API_KEY) return process.env.AI_GATEWAY_API_KEY;
+  try{return getVercelOidcTokenSync();}catch{return undefined;}
+};
 
 /** Use the deployment's short-lived identity; never expose credentials or provider errors. */
 export async function gatewayDirector<T>(schema:z.ZodType<T>, system:string, user:string):Promise<T> {
