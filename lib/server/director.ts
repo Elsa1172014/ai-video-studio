@@ -7,8 +7,9 @@ import * as z from 'zod/v4';
 import type {Character, EpisodeMemory, Language, Mode, Scene, Storyboard} from '@/lib/types';
 import {fitDurations, speechSeconds, planScenes} from '@/lib/planner';
 import {characterCard} from '@/lib/prompts';
+import {gatewayToken, gatewayDirector} from './gateway-director';
 
-export const directorEnabled = () => Boolean(process.env.ANTHROPIC_API_KEY);
+export const directorEnabled = () => Boolean(process.env.ANTHROPIC_API_KEY || gatewayToken());
 const MODEL = () => process.env.ANTHROPIC_MODEL || 'claude-opus-5-5';
 
 const SceneOut = z.object({
@@ -36,6 +37,7 @@ const MemoryOut = z.object({
 });
 
 async function ask<T>(schema: z.ZodType<T>, system: string, user: string): Promise<T> {
+  if(!process.env.ANTHROPIC_API_KEY) return gatewayDirector(schema,system,user);
   const client = new Anthropic();
   const res = await client.beta.messages.parse({
     model: MODEL(),
