@@ -1,6 +1,15 @@
 import type { Job, ProductionApi, Saved, SceneInput } from './runner';
 import type { StoryBible } from './story';
 
+async function safeRequest(url: string, init?: RequestInit): Promise<Job> {
+  try {
+    return await readJson(await fetch(url, init));
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'Unknown network error';
+    return { status: 'failed', message: 'Generation service unreachable: ' + detail + '. Check /api/health and the GPU endpoint configuration.' };
+  }
+}
+
 async function readJson(r: Response): Promise<Job> {
   const text = await r.text();
   try {
@@ -17,19 +26,19 @@ export type Engine = 'auto' | 'hf' | 'ltx';
 export const makeApi = (provider: Engine): ProductionApi => ({
   ...httpApi,
   async generate(req) {
-    return readJson(await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, ...req }) }));
+    return safeRequest('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, ...req }) });
   },
 });
 
 const httpApi: ProductionApi = {
   async generate(req) {
-    return readJson(await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'auto', ...req }) }));
+    return safeRequest('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'auto', ...req }) });
   },
   async status(jobId) {
-    return readJson(await fetch('/api/jobs/' + encodeURIComponent(jobId), { cache: 'no-store' }));
+    return safeRequest('/api/jobs/' + encodeURIComponent(jobId), { cache: 'no-store' });
   },
   async render(clips, durations) {
-    return readJson(await fetch('/api/render', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clips, durations }) }));
+    return safeRequest('/api/render', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clips, durations }) });
   },
   wait: (ms) => new Promise((r) => setTimeout(r, ms)),
 };
