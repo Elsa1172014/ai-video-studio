@@ -5,7 +5,7 @@ import asyncio
 import tempfile
 from pathlib import Path
 
-from .base import VideoAdapter
+from .base import VideoAdapter, NotConfigured
 from storage import OUTPUT_DIR, output_path, public_url
 from reference import fetch_reference
 
@@ -15,7 +15,7 @@ class LTXAdapter(VideoAdapter):
         inference = ltx_dir / "inference.py"
         pipeline_config = os.getenv("LTX_PIPELINE_CONFIG", "configs/ltxv-2b-0.9.6-distilled.yaml")
         if not inference.exists():
-            raise RuntimeError(f"LTX-Video was not found at {ltx_dir}. Set LTX_DIR to the official LTX-Video checkout.")
+            raise NotConfigured(f"LTX-Video was not found at {ltx_dir}. Set LTX_DIR to the official LTX-Video checkout.")
 
         requested_frames = max(9, int(duration * 30) + 1)
         num_frames = ((requested_frames - 2) // 8 + 1) * 8 + 1

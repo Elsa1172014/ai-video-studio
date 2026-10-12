@@ -12,9 +12,18 @@ async function readJson(r: Response): Promise<Job> {
 }
 
 /** The real production API: the Next.js routes that talk to the GPU worker (Runpod or a Vast/Lightning HTTP worker). */
-export const httpApi: ProductionApi = {
+export type Engine = 'auto' | 'hf' | 'ltx';
+
+export const makeApi = (provider: Engine): ProductionApi => ({
+  ...httpApi,
   async generate(req) {
-    return readJson(await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'ltx', ...req }) }));
+    return readJson(await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, ...req }) }));
+  },
+});
+
+const httpApi: ProductionApi = {
+  async generate(req) {
+    return readJson(await fetch('/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'auto', ...req }) }));
   },
   async status(jobId) {
     return readJson(await fetch('/api/jobs/' + encodeURIComponent(jobId), { cache: 'no-store' }));
@@ -40,6 +49,7 @@ export interface Persisted {
   minutes: number;
   seconds: number;
   lang: 'ar' | 'en';
+  engine?: Engine;
   bible?: StoryBible;
   saved: Record<string, Saved & { key: string }>;
 }

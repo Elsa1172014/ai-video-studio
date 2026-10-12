@@ -142,3 +142,6 @@
 @media (prefers-reduced-motion: reduce) { .st-root *, .st-root *::before, .st-root *::after { animation: none !important; transition: none !important; } }
 
 .st-export { margin: 14px 0 4px; padding-top: 14px; border-top: 1px dashed var(--line); }
+
+.st-engine { margin: 14px 0 0; max-width: 420px; }
+.st-engine select { background: rgba(0,0,0,.35); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font: inherit; }

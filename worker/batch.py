@@ -20,7 +20,7 @@ def load_plan(path:Path)->dict:
   if not s.get("prompt") or not (0<float(s.get("duration",0))<=30):raise SystemExit(f"Bad scene in plan: {s.get('id')}")
  return plan
 
-async def run(plan:dict,out_dir:Path,provider:str="ltx",adapters=None,log=print)->Path:
+async def run(plan:dict,out_dir:Path,provider:str="auto",adapters=None,log=print)->Path:
  from storage import OUTPUT_DIR,local_output
  from frames import last_frame_url
  from render import RenderRequest,render
@@ -51,7 +51,7 @@ async def run(plan:dict,out_dir:Path,provider:str="ltx",adapters=None,log=print)
 
 def main(argv=None):
  ap=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
- ap.add_argument("plan");ap.add_argument("--out",default="out");ap.add_argument("--provider",default="ltx")
+ ap.add_argument("plan");ap.add_argument("--out",default="out");ap.add_argument("--provider",default="auto",help="auto (free Spaces, then local models), hf, ltx, wan")
  a=ap.parse_args(argv);out=Path(a.out).resolve()
  os.environ.setdefault("OUTPUT_DIR",str(out/"clips"))  # must be set before the worker modules are imported
  sys.path.insert(0,str(Path(__file__).resolve().parent))

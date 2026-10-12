@@ -6,7 +6,7 @@ import { CastPanel } from '@/components/studio/CastPanel';
 import { ProgressReel } from '@/components/studio/ProgressReel';
 import { Storyboard } from '@/components/studio/Storyboard';
 import { TimeDial } from '@/components/studio/TimeDial';
-import { hashScene, httpApi, loadPersisted, playable, savePersisted, usableSaved, type Persisted } from '@/lib/clientApi';
+import { hashScene, loadPersisted, makeApi, type Engine, playable, savePersisted, usableSaved, type Persisted } from '@/lib/clientApi';
 import { formatClock } from '@/lib/planner';
 import { buildPlan } from '@/lib/plan';
 import { etaSeconds, producedSeconds } from '@/lib/progress';
@@ -21,6 +21,7 @@ export default function StoryStudio() {
   const [text, setText] = useState('');
   const [total, setTotal] = useState(60);
   const [bible, setBible] = useState<StoryBible | null>(null);
+  const [engine, setEngine] = useState<Engine>('auto');
   const [step, setStep] = useState<StepId>(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -39,6 +40,7 @@ export default function StoryStudio() {
     setText(p.text);
     setTotal(p.minutes * 60 + p.seconds);
     setLang(p.lang);
+    if (p.engine) setEngine(p.engine);
     if (p.bible) {
       setBible(p.bible);
       setStep(2);
@@ -63,8 +65,8 @@ export default function StoryStudio() {
   }, [text, total, lang]);
 
   useEffect(() => {
-    if (text || bible) remember({ text, minutes: Math.floor(total / 60), seconds: total % 60, lang, bible: bible ?? undefined });
-  }, [text, total, lang, bible, remember]);
+    if (text || bible) remember({ text, minutes: Math.floor(total / 60), seconds: total % 60, lang, engine, bible: bible ?? undefined });
+  }, [text, total, lang, engine, bible, remember]);
 
   async function analyze() {
     setError('');
@@ -98,7 +100,7 @@ export default function StoryStudio() {
     const saved = usableSaved(persisted.current, inputs);
     setError('');
     await runProduction({
-      scenes: inputs, api: httpApi, saved, signal: ctl.signal, referenceFor: refFor,
+      scenes: inputs, api: makeApi(engine), saved, signal: ctl.signal, referenceFor: refFor,
       onState: (st) => {
         setRun(st);
         const keep: Persisted['saved'] = {};
@@ -217,6 +219,13 @@ export default function StoryStudio() {
                 <div><small>{s.eta}</small><b>{eta === undefined ? '—' : formatClock(eta)}</b></div>
                 <div><small>{s.total}</small><b>{formatClock(total)}</b></div>
               </div>
+              <label className="st-engine">{s.engine}
+                <select value={engine} onChange={(e) => setEngine(e.target.value as Engine)} disabled={running}>
+                  <option value="auto">{s.engine_auto}</option>
+                  <option value="hf">{s.engine_hf}</option>
+                  <option value="ltx">{s.engine_ltx}</option>
+                </select>
+              </label>
               <div className="st-actions">
                 {running
                   ? <button type="button" className="st-cta is-stop" onClick={() => abort.current?.abort()}>{s.stop}</button>

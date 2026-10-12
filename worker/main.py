@@ -39,6 +39,10 @@ def load_job(job):
   data=json.loads(path.read_text(encoding="utf-8"));JOBS[job]=data;return data
  except Exception:return None
 
+def free_spaces():
+ try:return [c.name for c in ADAPTERS["hf"].configs()]
+ except Exception as e:return f"invalid configuration: {e}"
+
 def gpu_info():
  info={"available":False}
  try:
@@ -64,7 +68,7 @@ async def execute(job,req):
 
 @app.get("/health")
 def health():
- return {"ok":True,"version":app.version,"providers":list(ADAPTERS.keys()),"gpu":gpu_info(),"output_dir":str(OUTPUT_DIR),"job_dir":str(JOB_DIR)}
+ return {"ok":True,"version":app.version,"providers":list(ADAPTERS.keys()),"free_spaces":free_spaces(),"gpu":gpu_info(),"output_dir":str(OUTPUT_DIR),"job_dir":str(JOB_DIR)}
 
 @app.post("/generate")
 async def generate(req:Generate,authorization:Optional[str]=Header(None)):

@@ -93,3 +93,28 @@ async def test_reference_prefers_local_files_and_rejects_bad_urls(tmp_path):
     assert got.read_bytes()==b"\xff\xd8\xffdata" and got.parent==tmp_path
     with pytest.raises(RuntimeError,match="http"):
         await reference.fetch_reference("ftp://example.com/a.png",tmp_path)
+
+# ---- clips from different sources: sizes and lengths differ, the result must not ----
+def make_sized(name,color,w,h,d):
+    out=storage.OUTPUT_DIR/name
+    subprocess.run([render.ffmpeg_bin(),"-y","-f","lavfi","-i",f"color=c={color}:s={w}x{h}:d={d}:r=15","-pix_fmt","yuv420p",str(out)],check=True,capture_output=True)
+    return out
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"),reason="ffmpeg not installed")
+async def test_render_unifies_size_and_fixes_short_and_long_clips():
+    make_sized("m1.mp4","red",160,90,1.0)       # planned 1.5 s: too short, holds its last frame
+    make_sized("m2.mp4","blue",320,180,3.0)     # planned 1.0 s: too long, trimmed, other size, letterboxed
+    make_sized("m3.mp4","green",100,100,1.0)    # planned 1.0 s, square
+    url=await render.render(RenderRequest(clips=["/outputs/m1.mp4","/outputs/m2.mp4","/outputs/m3.mp4"],durations=[1.5,1.0,1.0]))
+    out=storage.OUTPUT_DIR/url.rsplit("/",1)[-1]
+    assert abs(duration_of(out)-3.5)<0.12
+    w,h,_=await render.probe(out)
+    assert (w,h)==(160,90)
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"),reason="ffmpeg not installed")
+async def test_render_leaves_no_temporary_files_behind():
+    make_sized("n1.mp4","red",160,90,1.0)
+    before={p.name for p in storage.OUTPUT_DIR.glob("*.norm.mp4")}|{p.name for p in storage.OUTPUT_DIR.glob("*.txt")}
+    await render.render(RenderRequest(clips=["/outputs/n1.mp4"],durations=[1.0]))
+    after={p.name for p in storage.OUTPUT_DIR.glob("*.norm.mp4")}|{p.name for p in storage.OUTPUT_DIR.glob("*.txt")}
+    assert after==before

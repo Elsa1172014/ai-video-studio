@@ -21,6 +21,8 @@ class FakeLTX:
         if p.returncode:raise RuntimeError(err.decode()[-500:])
         return public_url(out)
 
+from adapters.auto import AutoAdapter
 main.ADAPTERS["ltx"]=FakeLTX()
+main.ADAPTERS["auto"]=AutoAdapter({"ltx":main.ADAPTERS["ltx"]})   # the UI defaults to "auto"
 import uvicorn
 uvicorn.run(main.app,host="127.0.0.1",port=int(os.getenv("PORT","8000")),log_level="warning")

@@ -18,8 +18,8 @@ const dict = {
     idle: 'جاهز للبدء', running: 'جارٍ إنتاج المشهد', joining: 'جارٍ دمج المشاهد وضبط المدة', done: 'اكتمل الفيديو', failed: 'توقف الإنتاج', stopped: 'تم الإيقاف',
     sceneOf: 'المشهد {n} من {t}', produced: 'تم إنتاجه', remaining: 'المتبقي', elapsed: 'المنقضي', eta: 'الوقت المتبقي تقريبًا', calculating: 'يُحسب بعد أول مشهد',
     status_queued: 'بانتظار الدور', status_generating: 'قيد التوليد', status_done: 'جاهز', status_failed: 'فشل',
-    gpuNote: 'يتطلب خادم GPU متصلًا (GPU_API_URL أو Runpod). التقدم يعكس المشاهد المنتَجة فعلًا.',
-    finalVideo: 'الفيديو النهائي', exportPlan: 'تصدير خطة للتشغيل خارج المنصة', exportHint: 'بلا خادم ولا رصيد: شغّل الخطة على جهازك أو دفتر GPU مجاني بأمر واحد (docs/FREE_GPU.md).', selected: 'المشهد المحدد', prompt: 'وصف المشهد للنموذج',
+    gpuNote: 'يتصل بعامل الإنتاج (GPU_API_URL أو Runpod). مع المساحات المجانية لا يلزم GPU عندك، لكن الحصة والانتظار عند المساحة نفسها. التقدم يعكس المشاهد المنتَجة فعلًا.',
+    finalVideo: 'الفيديو النهائي', engine: 'محرك التوليد', engine_auto: 'تلقائي: مساحات مجانية ثم جهازي', engine_hf: 'مساحات مجانية (Hugging Face)', engine_ltx: 'LTX على جهازي أو خادمي', exportPlan: 'تصدير خطة للتشغيل خارج المنصة', exportHint: 'بلا خادم ولا رصيد: شغّل الخطة على جهازك أو دفتر GPU مجاني بأمر واحد (docs/FREE_GPU.md).', selected: 'المشهد المحدد', prompt: 'وصف المشهد للنموذج',
     langSwitch: 'English', old: 'الاستوديو الكلاسيكي',
   },
   en: {
@@ -39,8 +39,8 @@ const dict = {
     idle: 'Ready to start', running: 'Producing scene', joining: 'Joining scenes and fixing the length', done: 'Video complete', failed: 'Production stopped', stopped: 'Stopped',
     sceneOf: 'Scene {n} of {t}', produced: 'Produced', remaining: 'Remaining', elapsed: 'Elapsed', eta: 'Time left (approx.)', calculating: 'Calculated after the first scene',
     status_queued: 'Waiting', status_generating: 'Generating', status_done: 'Ready', status_failed: 'Failed',
-    gpuNote: 'Needs a connected GPU server (GPU_API_URL or Runpod). Progress reflects scenes actually produced.',
-    finalVideo: 'Final video', exportPlan: 'Export plan (run offline)', exportHint: 'No server, no credit: run the plan on your own GPU or a free notebook with one command (docs/FREE_GPU.md).', selected: 'Selected scene', prompt: 'Scene prompt sent to the model',
+    gpuNote: 'Connects to the production worker (GPU_API_URL or Runpod). With free Spaces you need no GPU of your own, but quota and queues belong to the Space. Progress reflects scenes actually produced.',
+    finalVideo: 'Final video', engine: 'Generation engine', engine_auto: 'Automatic: free Spaces, then my GPU', engine_hf: 'Free hosted Spaces (Hugging Face)', engine_ltx: 'LTX on my own GPU/server', exportPlan: 'Export plan (run offline)', exportHint: 'No server, no credit: run the plan on your own GPU or a free notebook with one command (docs/FREE_GPU.md).', selected: 'Selected scene', prompt: 'Scene prompt sent to the model',
     langSwitch: 'العربية', old: 'Classic studio',
   },
 } as const;

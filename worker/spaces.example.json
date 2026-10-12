@@ -1,0 +1,12 @@
+[
+  {
+    "_comment": "EXAMPLE ONLY - not a working Space. Copy to spaces.json and replace with a real Gradio Space (see docs/FREE_SPACES.md). Keys starting with _ are ignored.",
+    "name": "my-first-space",
+    "url": "https://OWNER-SPACENAME.hf.space",
+    "api_name": "/generate",
+    "args": ["{prompt}", "{image}", "{duration}", "{seed}"],
+    "output": 0,
+    "max_duration": 5,
+    "timeout": 600
+  }
+]

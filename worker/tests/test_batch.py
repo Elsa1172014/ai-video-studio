@@ -16,19 +16,19 @@ def plan(n=3,d=2):
 
 async def test_batch_makes_an_exact_length_video_and_chains_frames(tmp_path):
     m=FakeModel()
-    final=await batch.run(plan(),tmp_path,adapters={"ltx":m},log=lambda *_:None)
+    final=await batch.run(plan(),tmp_path,provider="ltx",adapters={"ltx":m},log=lambda *_:None)
     assert abs(duration_of(final)-6.0)<0.15          # 3 scenes x 2 s, although each clip overshoots by 0.3 s
     assert m.calls[0][2]=="https://ref/x.jpg"          # fresh scene: character reference
     assert m.calls[1][2].endswith(".jpg") and "ref" not in m.calls[1][2]   # chained scene: previous last frame
     assert m.calls[2][2]=="https://ref/x.jpg"
 
 async def test_rerun_resumes_without_regenerating(tmp_path):
-    m=FakeModel();await batch.run(plan(),tmp_path,adapters={"ltx":m},log=lambda *_:None)
+    m=FakeModel();await batch.run(plan(),tmp_path,provider="ltx",adapters={"ltx":m},log=lambda *_:None)
     assert len(m.calls)==3
-    m2=FakeModel();await batch.run(plan(),tmp_path,adapters={"ltx":m2},log=lambda *_:None)
+    m2=FakeModel();await batch.run(plan(),tmp_path,provider="ltx",adapters={"ltx":m2},log=lambda *_:None)
     assert m2.calls==[]
     changed=plan();changed["scenes"][2]["prompt"]="different"
-    m3=FakeModel();await batch.run(changed,tmp_path,adapters={"ltx":m3},log=lambda *_:None)
+    m3=FakeModel();await batch.run(changed,tmp_path,provider="ltx",adapters={"ltx":m3},log=lambda *_:None)
     assert [c[0] for c in m3.calls]==["different"]    # only the edited scene is redone
 
 def test_load_plan_rejects_garbage(tmp_path):
