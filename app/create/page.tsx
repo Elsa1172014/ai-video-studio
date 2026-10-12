@@ -8,6 +8,7 @@ import { Storyboard } from '@/components/studio/Storyboard';
 import { TimeDial } from '@/components/studio/TimeDial';
 import { hashScene, httpApi, loadPersisted, playable, savePersisted, usableSaved, type Persisted } from '@/lib/clientApi';
 import { formatClock } from '@/lib/planner';
+import { buildPlan } from '@/lib/plan';
 import { etaSeconds, producedSeconds } from '@/lib/progress';
 import { initialState, runProduction, type RunState, type SceneInput } from '@/lib/runner';
 import { analyzeStory, buildScenes, type Lang, type StoryBible } from '@/lib/story';
@@ -105,6 +106,15 @@ export default function StoryStudio() {
         remember({ saved: keep });
       },
     });
+  }
+
+  function exportPlan() {
+    if (!bible) return;
+    const plan = buildPlan(bible.title, scenes, (sc) => refFor({ id: sc.id, prompt: sc.prompt, duration: sc.duration, continuity: sc.continuity }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(plan, null, 2)], { type: 'application/json' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: 'story-studio.plan.json' });
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   function reset() {
@@ -213,6 +223,7 @@ export default function StoryStudio() {
                   : <button type="button" className="st-cta" onClick={start} disabled={!inputs.length || view.phase === 'done'}>{view.phase === 'failed' && allScenesDone ? s.retryJoin : doneCount > 0 && view.phase !== 'done' ? s.resume : s.produce}</button>}
                 {(doneCount > 0 || run) && !running && <button type="button" className="st-ghost" onClick={reset}>{s.reset}</button>}
               </div>
+              <div className="st-export"><button type="button" className="st-ghost" onClick={exportPlan} disabled={!scenes.length}>⤓ {s.exportPlan}</button><p className="st-hint">{s.exportHint}</p></div>
               {view.error && <p className="st-error" role="alert">{view.error}</p>}
               <p className="st-hint">{s.gpuNote}</p>
               {finalSrc && (

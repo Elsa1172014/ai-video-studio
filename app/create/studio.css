@@ -140,3 +140,5 @@
 
 @media (max-width: 900px) { .st-main.with-reel { grid-template-columns: 1fr; } .st-side { position: static; order: -1; } }
 @media (prefers-reduced-motion: reduce) { .st-root *, .st-root *::before, .st-root *::after { animation: none !important; transition: none !important; } }
+
+.st-export { margin: 14px 0 4px; padding-top: 14px; border-top: 1px dashed var(--line); }
