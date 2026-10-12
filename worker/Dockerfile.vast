@@ -1,0 +1,16 @@
+# FastAPI worker + LTX-Video for Vast.ai (or any plain Docker GPU host).
+# Same HTTP contract as the legacy worker: /health, /generate, /jobs/:id, /render, /media, /outputs.
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+    LTX_DIR=/opt/LTX-Video OUTPUT_DIR=/workspace/outputs JOB_DIR=/workspace/outputs/jobs
+RUN apt-get update && apt-get install -y --no-install-recommends git python3 python3-pip ffmpeg curl && rm -rf /var/lib/apt/lists/*
+WORKDIR /opt
+RUN git clone --depth 1 https://github.com/Lightricks/LTX-Video.git
+RUN python3 -m pip install --no-cache-dir "/opt/LTX-Video[inference]"
+WORKDIR /app
+COPY worker/requirements.txt .
+RUN python3 -m pip install --no-cache-dir -r requirements.txt imageio-ffmpeg
+COPY worker/ /app/
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 CMD curl -fsS http://127.0.0.1:8000/health || exit 1
+CMD ["python3","-m","uvicorn","main:app","--host","0.0.0.0","--port","8000"]

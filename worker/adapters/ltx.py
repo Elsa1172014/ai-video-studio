@@ -3,12 +3,11 @@ import sys
 import shutil
 import asyncio
 import tempfile
-import urllib.request
 from pathlib import Path
-from urllib.parse import urlparse
 
-from .base import VideoAdapter
+from .base import VideoAdapter, NotConfigured
 from storage import OUTPUT_DIR, output_path, public_url
+from reference import fetch_reference
 
 class LTXAdapter(VideoAdapter):
     async def generate(self, prompt: str, duration: int, image_url: str | None = None) -> str:
@@ -16,7 +15,7 @@ class LTXAdapter(VideoAdapter):
         inference = ltx_dir / "inference.py"
         pipeline_config = os.getenv("LTX_PIPELINE_CONFIG", "configs/ltxv-2b-0.9.6-distilled.yaml")
         if not inference.exists():
-            raise RuntimeError(f"LTX-Video was not found at {ltx_dir}. Set LTX_DIR to the official LTX-Video checkout.")
+            raise NotConfigured(f"LTX-Video was not found at {ltx_dir}. Set LTX_DIR to the official LTX-Video checkout.")
 
         requested_frames = max(9, int(duration * 30) + 1)
         num_frames = ((requested_frames - 2) // 8 + 1) * 8 + 1
@@ -37,24 +36,7 @@ class LTXAdapter(VideoAdapter):
         ]
 
         if image_url:
-            parsed = urlparse(image_url)
-            if parsed.scheme not in ("http", "https"):
-                raise RuntimeError("Character reference image must use an http(s) URL.")
-            suffix = Path(parsed.path).suffix.lower()
-            if suffix not in (".jpg", ".jpeg", ".png", ".webp"):
-                suffix = ".jpg"
-            reference_path = job_dir / ("character-reference" + suffix)
-            def download_reference():
-                request = urllib.request.Request(image_url, headers={"User-Agent": "AI-Video-Studio/1.0"})
-                with urllib.request.urlopen(request, timeout=30) as response:
-                    content_type = (response.headers.get("Content-Type") or "").lower()
-                    if not content_type.startswith("image/"):
-                        raise RuntimeError("Character reference URL did not return an image.")
-                    data = response.read(15 * 1024 * 1024 + 1)
-                    if len(data) > 15 * 1024 * 1024:
-                        raise RuntimeError("Character reference image is larger than 15 MB.")
-                    reference_path.write_bytes(data)
-            await asyncio.to_thread(download_reference)
+            reference_path = await fetch_reference(image_url, job_dir)
             args += [
                 "--conditioning_media_paths", str(reference_path),
                 "--conditioning_start_frames", "0",

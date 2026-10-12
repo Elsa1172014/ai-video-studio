@@ -5,3 +5,7 @@ node_modules
 worker/__pycache__
 worker/.venv
 worker/outputs
+next-env.d.ts
+tsconfig.tsbuildinfo
+__pycache__
+.pytest_cache

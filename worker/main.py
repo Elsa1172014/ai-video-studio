@@ -9,6 +9,7 @@ from adapters import ADAPTERS
 from fastapi import UploadFile,File
 from media import save_upload
 from render import RenderRequest,render
+from frames import last_frame_url
 
 app=FastAPI(title="AI Video Studio GPU Worker",version="0.3.0")
 app.mount("/outputs",StaticFiles(directory=str(OUTPUT_DIR)),name="outputs")
@@ -38,6 +39,10 @@ def load_job(job):
   data=json.loads(path.read_text(encoding="utf-8"));JOBS[job]=data;return data
  except Exception:return None
 
+def free_spaces():
+ try:return [c.name for c in ADAPTERS["hf"].configs()]
+ except Exception as e:return f"invalid configuration: {e}"
+
 def gpu_info():
  info={"available":False}
  try:
@@ -56,12 +61,14 @@ async def execute(job,req):
   if not adapter:raise RuntimeError(f"Unknown provider: {req.provider}")
   url=await adapter.generate(req.prompt,req.duration,req.imageUrl)
   JOBS[job].update(status="completed",outputUrl=url,message="Video generated",gpu_after=gpu_info())
+  frame=await last_frame_url(url)
+  if frame:JOBS[job]["lastFrameUrl"]=frame
  except Exception as e:JOBS[job].update(status="failed",message=str(e),gpu_after=gpu_info())
  finally:save_job(job)
 
 @app.get("/health")
 def health():
- return {"ok":True,"version":app.version,"providers":list(ADAPTERS.keys()),"gpu":gpu_info(),"output_dir":str(OUTPUT_DIR),"job_dir":str(JOB_DIR)}
+ return {"ok":True,"version":app.version,"providers":list(ADAPTERS.keys()),"free_spaces":free_spaces(),"gpu":gpu_info(),"output_dir":str(OUTPUT_DIR),"job_dir":str(JOB_DIR)}
 
 @app.post("/generate")
 async def generate(req:Generate,authorization:Optional[str]=Header(None)):

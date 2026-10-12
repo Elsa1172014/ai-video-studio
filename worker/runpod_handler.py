@@ -2,6 +2,7 @@ import asyncio,os
 import runpod
 from adapters import ADAPTERS
 from render import RenderRequest,render
+from frames import last_frame_url
 
 async def handle(payload):
  action=payload.get("action","generate")
@@ -9,7 +10,8 @@ async def handle(payload):
   provider=payload.get("provider","ltx")
   adapter=ADAPTERS.get(provider)
   if not adapter: raise RuntimeError(f"Unknown provider: {provider}")
-  return {"status":"completed","provider":provider,"outputUrl":await adapter.generate(payload["prompt"],int(payload.get("duration",5)),payload.get("imageUrl"))}
+  url=await adapter.generate(payload["prompt"],int(payload.get("duration",5)),payload.get("imageUrl"))
+  return {"status":"completed","provider":provider,"outputUrl":url,"lastFrameUrl":await last_frame_url(url)}
  if action=="render":
   return {"status":"completed","outputUrl":await render(RenderRequest(**payload))}
  if action=="health":
