@@ -9,6 +9,7 @@ from adapters import ADAPTERS
 from fastapi import UploadFile,File
 from media import save_upload
 from render import RenderRequest,render
+from frames import last_frame_url
 
 app=FastAPI(title="AI Video Studio GPU Worker",version="0.3.0")
 app.mount("/outputs",StaticFiles(directory=str(OUTPUT_DIR)),name="outputs")
@@ -56,6 +57,8 @@ async def execute(job,req):
   if not adapter:raise RuntimeError(f"Unknown provider: {req.provider}")
   url=await adapter.generate(req.prompt,req.duration,req.imageUrl)
   JOBS[job].update(status="completed",outputUrl=url,message="Video generated",gpu_after=gpu_info())
+  frame=await last_frame_url(url)
+  if frame:JOBS[job]["lastFrameUrl"]=frame
  except Exception as e:JOBS[job].update(status="failed",message=str(e),gpu_after=gpu_info())
  finally:save_job(job)
 

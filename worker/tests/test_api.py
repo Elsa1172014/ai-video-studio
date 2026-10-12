@@ -79,3 +79,14 @@ async def test_command_adapter_runs_command_and_returns_url(monkeypatch):
     monkeypatch.setenv("WAN_GENERATE_COMMAND",'printf x > "$VIDEO_OUTPUT"')
     url=await adapters.ADAPTERS["wan"].generate("p",5)
     assert url.startswith("/outputs/") and url.endswith(".mp4")
+
+def test_completed_job_exposes_last_frame_url(client,monkeypatch):
+    import frames
+    async def fake(url):return "/outputs/frame.jpg"
+    monkeypatch.setattr(main,"last_frame_url",fake)
+    jid=client.post("/generate",json={"provider":"ltx","prompt":"a cat"}).json()["jobId"]
+    d=wait_done(client,jid);assert d["status"]=="completed" and d["lastFrameUrl"]=="/outputs/frame.jpg"
+
+def test_render_endpoint_accepts_durations(client):
+    d=client.post("/render",json={"clips":["/outputs/missing.mp4"],"durations":[2]}).json()
+    assert d["status"]=="failed" and "Clip not found" in d["message"]

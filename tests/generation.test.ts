@@ -66,3 +66,23 @@ describe('lib/generation – Runpod',()=>{
     expect(JSON.parse(f.mock.calls[1][1].body).input).toEqual({action:'render',clips:['a']});
   });
 });
+
+describe('lib/generation – continuity and exact length',()=>{
+  it('legacy worker: lastFrameUrl is absolutized like outputUrl',async()=>{
+    vi.stubEnv('RUNPOD_ENDPOINT_ID','');vi.stubEnv('RUNPOD_API_KEY','');vi.stubEnv('GPU_API_URL','https://gpu.example.com');
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(async()=>json({jobId:'1',status:'completed',provider:'ltx',outputUrl:'/outputs/a.mp4',lastFrameUrl:'/outputs/a.jpg'})));
+    const r=await getGeneration('1');
+    expect(r.lastFrameUrl).toBe('https://gpu.example.com/outputs/a.jpg');
+  });
+  it('runpod: lastFrameUrl is surfaced on completion',async()=>{
+    vi.stubEnv('RUNPOD_ENDPOINT_ID','e');vi.stubEnv('RUNPOD_API_KEY','k');
+    vi.stubGlobal('fetch',vi.fn().mockImplementation(async()=>json({id:'j',status:'COMPLETED',output:{outputUrl:'https://cdn/x.mp4',lastFrameUrl:'https://cdn/x.jpg'}})));
+    expect((await getGeneration('j')).lastFrameUrl).toBe('https://cdn/x.jpg');
+  });
+  it('submitRender forwards planned durations to the worker',async()=>{
+    vi.stubEnv('RUNPOD_ENDPOINT_ID','');vi.stubEnv('RUNPOD_API_KEY','');vi.stubEnv('GPU_API_URL','https://gpu.example.com');
+    const f=vi.fn().mockImplementation(async()=>json({status:'completed',outputUrl:'/outputs/f.mp4'}));vi.stubGlobal('fetch',f);
+    await submitRender(['a','b'],[8,7]);
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({clips:['a','b'],durations:[8,7]});
+  });
+});
