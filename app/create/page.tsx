@@ -15,10 +15,22 @@ import { analyzeStory, buildScenes, type Lang, type StoryBible } from '@/lib/sto
 import { fill, tr } from '@/lib/studio-i18n';
 
 type StepId = 0 | 1 | 2 | 3;
+type TextKind = 'story' | 'education' | 'literature' | 'history' | 'science' | 'documentary' | 'advertising' | 'free';
+const textKinds: Record<TextKind, { ar: string; en: string; direction: string }> = {
+  story: { ar: 'قصصي', en: 'Story', direction: 'Narrative scene progression, consistent characters and action.' },
+  education: { ar: 'تعليمي', en: 'Educational', direction: 'Teach concepts using accurate visual examples, diagrams and demonstrations.' },
+  literature: { ar: 'أدبي', en: 'Literary', direction: 'Use expressive imagery and visual analysis of the supplied passage.' },
+  history: { ar: 'تاريخي', en: 'Historical', direction: 'Reconstruct context carefully without inventing historical facts.' },
+  science: { ar: 'علمي', en: 'Scientific', direction: 'Use accurate scientific visualizations without inventing data.' },
+  documentary: { ar: 'وثائقي', en: 'Documentary', direction: 'Visualize evidence and maps without fabricating footage or sources.' },
+  advertising: { ar: 'إعلاني', en: 'Advertisement', direction: 'Use striking shots and a concise message without inventing product claims.' },
+  free: { ar: 'حر / مخصص', en: 'Custom', direction: 'Follow the source text without imposing a story structure.' },
+};
 
 export default function StoryStudio() {
   const [lang, setLang] = useState<Lang>('ar');
   const [text, setText] = useState('');
+  const [textKind, setTextKind] = useState<TextKind>('education');
   const [total, setTotal] = useState(60);
   const [bible, setBible] = useState<StoryBible | null>(null);
   const [engine, setEngine] = useState<Engine>('auto');
@@ -47,7 +59,18 @@ export default function StoryStudio() {
     }
   }, []);
 
-  const scenes = useMemo(() => (bible ? buildScenes(bible, total) : []), [bible, total]);
+  const scenes = useMemo(() => {
+    if (!bible) return [];
+    const generated = buildScenes(bible, total);
+    if (textKind === 'story') return generated;
+    return generated.map((scene) => ({ ...scene, characters: [], continuity: 'fresh' as const, prompt: [
+      'VIDEO TYPE: ' + textKinds[textKind].en,
+      'DIRECTION: ' + textKinds[textKind].direction,
+      'SOURCE PASSAGE: ' + scene.beat,
+      'SHOT ' + (scene.index + 1) + ': Visualize the actual information and evidence in this passage. No invented protagonists.',
+      'STYLE: ' + bible.style
+    ].join('\n') }));
+  }, [bible, total, textKind]);
   const inputs: SceneInput[] = useMemo(() => scenes.map(({ id, prompt, duration, continuity }) => ({ id, prompt, duration, continuity })), [scenes]);
   const view: RunState = run ?? initialState(inputs, usableSaved(persisted.current, inputs));
   const running = run?.phase === 'running' || run?.phase === 'joining';
@@ -70,7 +93,7 @@ export default function StoryStudio() {
 
   async function analyze() {
     setError('');
-    if (text.trim().length < 10) return setError(s.needStory);
+    if (text.trim().length < 10) return setError(lang === 'ar' ? 'أدخل نصًا لا يقل عن 10 أحرف.' : 'Enter at least 10 characters.');
     if (total < 1) return setError(s.needTime);
     setBusy(true);
     try {
@@ -179,6 +202,10 @@ export default function StoryStudio() {
           {step === 0 && (
             <section className="st-glass">
               <label className="st-field" htmlFor="st-story"><span>{s.storyLabel}</span></label>
+              <label className="st-field" htmlFor="st-kind"><span>{lang === 'ar' ? 'نوع النص' : 'Text type'}</span></label>
+              <select id="st-kind" className="st-engine" value={textKind} onChange={(e) => { setTextKind(e.target.value as TextKind); setRun(null); }}>
+                {(Object.keys(textKinds) as TextKind[]).map((kind) => <option key={kind} value={kind}>{textKinds[kind][lang]}</option>)}
+              </select>
               <textarea id="st-story" className="st-story" value={text} onChange={(e) => setText(e.target.value)} placeholder={s.storyPh} rows={9} />
               <TimeDial total={total} onChange={setTotal} s={s} />
               <button type="button" className="st-cta" onClick={analyze} disabled={busy}>{busy ? s.analyzing : s.analyze}</button>
