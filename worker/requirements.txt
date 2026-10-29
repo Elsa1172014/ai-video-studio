@@ -2,3 +2,7 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 pydantic==2.10.4
 python-multipart==0.0.20
+imageio-ffmpeg>=0.5.1
+# Kinocut (cinematic finishing CLI) is installed as an isolated tool, not here:
+# it needs Python >=3.11 and newer pydantic/starlette than this FastAPI pin.
+#   uv tool install --python 3.11 kinocut     (or: pipx install kinocut)

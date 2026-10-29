@@ -1,1 +1,9 @@
-import {NextResponse} from 'next/server';export async function POST(req:Request){const base=process.env.GPU_API_URL;if(!base)return NextResponse.json({status:'unconfigured',message:'Connect GPU_API_URL to enable dubbing'});const body=await req.json();const r=await fetch(base.replace(/\/$/,'')+'/dub',{method:'POST',headers:{'Content-Type':'application/json',...(process.env.GPU_API_KEY?{Authorization:`Bearer ${process.env.GPU_API_KEY}`}:{})},body:JSON.stringify(body)});return NextResponse.json(await r.json(),{status:r.status})}
+import {NextResponse} from 'next/server';
+
+export const dynamic='force-dynamic';
+
+// Dubbing (transcribe → translate → TTS → timing) is not wired to the worker yet.
+// Return an explicit 501 instead of an empty handler so the UI can explain it.
+export async function POST(){
+ return NextResponse.json({status:'failed',error:'Dubbing is not connected yet. It needs WHISPER_COMMAND and TTS_GENERATE_COMMAND on the worker plus a translation step.'},{status:501});
+}

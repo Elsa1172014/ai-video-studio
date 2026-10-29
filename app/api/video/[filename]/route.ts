@@ -5,9 +5,11 @@ export const dynamic='force-dynamic';
 
 export async function GET(req:NextRequest,{params}:{params:Promise<{filename:string}>}){
  const {filename}=await params;
- if(!/^[A-Za-z0-9._-]+\.mp4$/i.test(filename))return NextResponse.json({error:'Invalid video filename'},{status:400});
- const base=process.env.GPU_API_URL;
- if(!base)return NextResponse.json({error:'GPU endpoint is not configured'},{status:503});
+ if(!/^[A-Za-z0-9._-]+\.(mp4|srt)$/i.test(filename))return NextResponse.json({error:'Invalid video filename'},{status:400});
+ const isCaptions=/\.srt$/i.test(filename);
+ // HTTP worker serves /outputs itself; Runpod outputs are served from PUBLIC_OUTPUT_BASE_URL (object storage / file server).
+ const base=process.env.GPU_API_URL||process.env.PUBLIC_OUTPUT_BASE_URL;
+ if(!base)return NextResponse.json({error:'Set GPU_API_URL (HTTP worker) or PUBLIC_OUTPUT_BASE_URL (Runpod outputs) so videos can be served.'},{status:503});
 
  const headers:Record<string,string>={
   'ngrok-skip-browser-warning':'true',
@@ -30,6 +32,9 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{filename:str
   if(!upstream.ok&&upstream.status!==206){
    const body=await upstream.text();
    return NextResponse.json({error:'Video upstream failed',status:upstream.status,detail:body.slice(0,300)},{status:502});
+  }
+  if(isCaptions){
+   return new NextResponse(await upstream.text(),{headers:{'Content-Type':'application/x-subrip; charset=utf-8','Content-Disposition':`attachment; filename="${filename}"`,'Cache-Control':'no-store'}});
   }
   if(!contentType.toLowerCase().includes('video/mp4')){
    const body=await upstream.text();

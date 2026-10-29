@@ -34,13 +34,16 @@ export default function Projects() {
             <p className="mt-4 text-xs text-slate-500">
               {project.scenes.length} scenes · {project.minutes} min
             </p>
-            <button
-              type="button"
-              onClick={() => remove(project.id)}
-              className="mt-4 text-xs text-red-400"
-            >
-              Delete
-            </button>
+            <div className="mt-4 flex items-center gap-4">
+              <Link href={'/studio?id='+encodeURIComponent(project.id)} className="text-xs font-bold text-purple-300">Open in Studio →</Link>
+              <button
+                type="button"
+                onClick={() => remove(project.id)}
+                className="text-xs text-red-400"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         )) : (
           <div className="card p-8 text-slate-400">

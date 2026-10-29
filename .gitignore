@@ -5,3 +5,7 @@ node_modules
 worker/__pycache__
 worker/.venv
 worker/outputs
+
+__pycache__/
+*.pyc
+*.tsbuildinfo
