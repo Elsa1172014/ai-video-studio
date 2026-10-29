@@ -4,7 +4,7 @@ Run the whole studio without a GPU server or a paid plan:
 
 | Stage | Runs on | Free allowance |
 |---|---|---|
-| Scene generation | Hugging Face **ZeroGPU** Spaces (LTX-2.3, LTX-2.5, LTX-2 Turbo, Wan 2.2), called from GitHub Actions | 2 GPU-min/day anonymous, 5 GPU-min/day with a free `HF_TOKEN` |
+| Scene generation | Hugging Face **ZeroGPU** Spaces (LTX-2 Turbo, LTX-2.3, LTX-Video, Wan 2.2), called from GitHub Actions | 2 GPU-min/day anonymous, 5 GPU-min/day with a free `HF_TOKEN` |
 | Cinematic finish | **GitHub Actions** (`.github/workflows/studio-cloud.yml`) with Kinocut, HyperFrames, FFmpeg/libass | Unlimited minutes for public repositories |
 | Web app | Vercel Hobby | Free |
 
