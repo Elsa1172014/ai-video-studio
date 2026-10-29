@@ -17,14 +17,14 @@ import os
 import shutil
 import sys
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
 
-DEFAULT_SPACES = [s.strip() for s in os.getenv(
-    "HF_VIDEO_SPACES",
-    "Lightricks/ltx-2-distilled,Lightricks/ltx-2,Lightricks/ltx-video-distilled,zerogpu-aoti/wan2-2-fp8da-aoti-faster",
-).split(",") if s.strip()]
+FALLBACK_SPACES = "Lightricks/ltx-2-distilled,Lightricks/ltx-2,Lightricks/ltx-video-distilled,zerogpu-aoti/wan2-2-fp8da-aoti-faster"
+# An empty repository variable must not wipe the defaults, hence `or`.
+DEFAULT_SPACES = [s.strip() for s in (os.getenv("HF_VIDEO_SPACES") or FALLBACK_SPACES).split(",") if s.strip()]
 
 PROMPT_KEYS = ("prompt", "text", "caption", "description")
 DURATION_KEYS = ("duration", "seconds", "length", "video_length", "duration_seconds")
@@ -110,9 +110,19 @@ def generate(request: dict, out: Path) -> dict:
     prompt = str(request["prompt"])[:2000]
     duration = float(max(1, min(10, request.get("duration", 5))))
     token = os.getenv("HF_TOKEN") or None
-    spaces = [request["space"]] if request.get("space") else DEFAULT_SPACES
-    errors = []
-    for space in spaces:
+    errors: list[str] = []
+
+    def candidates():
+        if request.get("space"):
+            yield request["space"]
+            return
+        yield from DEFAULT_SPACES
+        log("configured Spaces failed; searching the Hub for running ZeroGPU video Spaces")
+        for found in running_zero_gpu_spaces(8):
+            if found not in DEFAULT_SPACES:
+                yield found
+
+    for space in candidates():
         try:
             log(f"connecting to {space}")
             client = Client(space, token=token, verbose=False, download_files=str(out.parent / "hf-downloads"))
@@ -172,19 +182,56 @@ def finish(request: dict, out: Path) -> dict:
 
 # ---------------------------------------------------------------- discover
 
+def _hf_json(url: str) -> Any:
+    headers = {"User-Agent": "AI-Video-Studio/1.0"}
+    if os.getenv("HF_TOKEN"):
+        headers["Authorization"] = f"Bearer {os.environ['HF_TOKEN']}"
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as r:
+        return json.loads(r.read())
+
+
+def running_zero_gpu_spaces(limit: int = 12) -> list[str]:
+    """Search the Hub for popular text-to-video Spaces that are running on ZeroGPU right now."""
+    seen, found = set(), []
+    for query in ("ltx-video", "ltx-2", "wan2.2", "wan 2.2", "text-to-video", "hunyuanvideo"):
+        try:
+            spaces = _hf_json(f"https://huggingface.co/api/spaces?search={urllib.parse.quote(query)}&sort=likes&direction=-1&limit=25")
+        except Exception as e:
+            log(f"search {query} failed: {e}")
+            continue
+        for item in spaces:
+            sid = item.get("id")
+            if not sid or sid in seen:
+                continue
+            seen.add(sid)
+            try:
+                runtime = _hf_json(f"https://huggingface.co/api/spaces/{sid}/runtime")
+            except Exception:
+                continue
+            hardware = str((runtime.get("hardware") or {}).get("current") or "")
+            if runtime.get("stage") == "RUNNING" and hardware.startswith("zero"):
+                found.append(sid)
+                if len(found) >= limit:
+                    return found
+    return found
+
+
 def discover() -> dict:
-    """Report which candidate Spaces are running and what their endpoints accept."""
+    """Report which Spaces are usable now: configured candidates plus running ZeroGPU video Spaces."""
     from gradio_client import Client
+    candidates = list(dict.fromkeys(DEFAULT_SPACES + running_zero_gpu_spaces()))
+    log(f"checking {len(candidates)} Spaces")
     found = []
-    for space in DEFAULT_SPACES:
+    for space in candidates:
         try:
             client = Client(space, token=os.getenv("HF_TOKEN") or None, verbose=False)
             endpoints = _endpoints(client)
-            found.append({"space": space, "ok": True, "endpoint": _pick_endpoint(endpoints),
-                          "params": {k: [p.get("parameter_name") for p in v] for k, v in endpoints.items()}})
+            endpoint = _pick_endpoint(endpoints)
+            found.append({"space": space, "ok": True, "endpoint": endpoint,
+                          "params": [p.get("parameter_name") for p in endpoints[endpoint]]})
         except Exception as e:
-            found.append({"space": space, "ok": False, "error": str(e)[:300]})
-    return {"status": "completed", "spaces": found}
+            found.append({"space": space, "ok": False, "error": str(e)[:200]})
+    return {"status": "completed", "usable": [f["space"] for f in found if f["ok"]], "spaces": found}
 
 
 def main() -> int:
