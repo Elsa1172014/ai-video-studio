@@ -1,1 +1,15 @@
-import {NextResponse} from 'next/server';import {z} from 'zod';const S=z.object({text:z.string().min(1),language:z.enum(['ar','en']).default('ar'),voice:z.string().default('default')});export async function POST(req:Request){const x=S.parse(await req.json());const base=process.env.GPU_API_URL;if(!base)return NextResponse.json({status:'unconfigured',message:'Connect GPU_API_URL to enable TTS'});const r=await fetch(base.replace(/\/$/,'')+'/voice',{method:'POST',headers:{'Content-Type':'application/json',...(process.env.GPU_API_KEY?{Authorization:`Bearer ${process.env.GPU_API_KEY}`}:{})},body:JSON.stringify(x)});return NextResponse.json(await r.json(),{status:r.status})}
+import {NextResponse} from 'next/server';
+import {z} from 'zod';
+import {submitVoice} from '@/lib/generation';
+
+export const dynamic='force-dynamic';
+
+const Body=z.object({text:z.string().trim().min(1).max(5000),language:z.string().min(2).max(10).default('ar'),voice:z.string().min(1).max(80).default('default')});
+
+export async function POST(req:Request){
+ let input;
+ try{input=Body.parse(await req.json())}
+ catch{return NextResponse.json({status:'failed',error:'Text is required (max 5000 characters).'},{status:400})}
+ try{return NextResponse.json(await submitVoice(input))}
+ catch(e){return NextResponse.json({status:'failed',error:e instanceof Error?e.message:'Voice generation failed'},{status:502})}
+}

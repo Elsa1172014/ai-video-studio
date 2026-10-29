@@ -1,0 +1,97 @@
+name: Studio cloud task
+# Free, serverless pipeline: the web app dispatches this workflow for each scene (generate)
+# and for the final film (finish). Results are published as assets of the "films" release.
+run-name: ${{ inputs.task }} ${{ inputs.request_id }}
+
+on:
+  workflow_call:
+    inputs:
+      task: {required: true, type: string}
+      request_id: {required: true, type: string}
+      request: {required: false, type: string, default: "{}"}
+  workflow_dispatch:
+    inputs:
+      task:
+        description: generate | finish | discover
+        required: true
+        type: choice
+        options: [generate, finish, discover]
+      request_id:
+        description: Unique id, e.g. scene-<uuid> or film-<uuid>
+        required: true
+        type: string
+      request:
+        description: JSON request (prompt/duration for generate, clips/finish for finish)
+        required: false
+        type: string
+        default: "{}"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: studio-${{ inputs.request_id }}
+  cancel-in-progress: false
+
+jobs:
+  task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TASK: ${{ inputs.task }}
+      REQUEST_ID: ${{ inputs.request_id }}
+      REQUEST: ${{ inputs.request }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_VIDEO_SPACES: ${{ vars.HF_VIDEO_SPACES }}
+      GH_TOKEN: ${{ github.token }}
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - name: Validate request id
+        run: |
+          [[ "$TASK" =~ ^(generate|finish|discover)$ ]] || { echo "Invalid task"; exit 1; }
+          [[ "$REQUEST_ID" =~ ^[a-z]+-[A-Za-z0-9-]{6,80}$ ]] || { echo "Invalid request_id"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/out" && printf '%s' "$REQUEST" > "$RUNNER_TEMP/out/request.json"
+
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: worker
+          sparse-checkout-cone-mode: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: worker/requirements.txt
+
+      - name: Install generation client
+        if: inputs.task != 'finish'
+        run: pip install "gradio_client>=1.4"
+
+      - name: Install finishing tools
+        if: inputs.task == 'finish'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fontconfig >/dev/null
+          pip install "kinocut>=1.16.4" "pydantic>=2.13"
+          sudo mkdir -p /usr/share/fonts/truetype/cairo && sudo cp worker/assets/fonts/*.ttf /usr/share/fonts/truetype/cairo/ && sudo fc-cache -f
+          npm install -g hyperframes@latest >/dev/null 2>&1 && (hyperframes browser ensure >/dev/null 2>&1 || echo "HyperFrames browser unavailable: cards fall back to FFmpeg")
+          kino --version && ffmpeg -hide_banner -filters | grep -E " ass | xfade " || true
+
+      - name: Run task
+        id: run
+        working-directory: worker
+        run: |
+          python cloud_task.py "$TASK" --request "$RUNNER_TEMP/out/request.json" --out "$RUNNER_TEMP/out/$REQUEST_ID.mp4"
+
+      - name: Publish result
+        if: always()
+        run: |
+          R=${{ github.repository }}
+          gh release view films --repo "$R" >/dev/null 2>&1 || gh release create films --repo "$R" --title "Rendered films" --notes "Scene clips and finished films produced by the AI Video Studio cloud pipeline. Assets are replaced and pruned automatically." --prerelease
+          files=()
+          for f in "$RUNNER_TEMP/out/$REQUEST_ID.mp4" "$RUNNER_TEMP/out/$REQUEST_ID.srt" "$RUNNER_TEMP/out/$REQUEST_ID.json"; do [ -s "$f" ] && files+=("$f"); done
+          [ ${#files[@]} -gt 0 ] && gh release upload films "${files[@]}" --clobber --repo "$R"
+          # keep the release tidy: remove assets older than 14 days
+          cutoff=$(date -u -d '14 days ago' +%s)
+          gh api "repos/${{ github.repository }}/releases/tags/films" --jq '.assets[] | "\(.id) \(.created_at)"' | while read -r id created; do
+            [ "$(date -u -d "$created" +%s)" -lt "$cutoff" ] && gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id" || true
+          done

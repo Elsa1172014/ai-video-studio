@@ -1,20 +1,22 @@
 import os,uuid,asyncio,json
 from pathlib import Path
 from typing import Optional
-from fastapi import FastAPI,Header,HTTPException
+from fastapi import FastAPI,Header,HTTPException,UploadFile,File
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel,Field
 from storage import OUTPUT_DIR
 from adapters import ADAPTERS
-from fastapi import UploadFile,File
 from media import save_upload
 from render import RenderRequest,render
+from voice import VoiceRequest,synthesize
+from capabilities import capabilities
 
-app=FastAPI(title="AI Video Studio GPU Worker",version="0.3.0")
+app=FastAPI(title="AI Video Studio GPU Worker",version="0.4.0")
 app.mount("/outputs",StaticFiles(directory=str(OUTPUT_DIR)),name="outputs")
 JOB_DIR=Path(os.getenv("JOB_DIR",str(OUTPUT_DIR/"jobs"))).expanduser().resolve()
 JOB_DIR.mkdir(parents=True,exist_ok=True)
 JOBS={}
+TASKS=set()
 
 class Generate(BaseModel):
  provider:str="wan";prompt:str=Field(min_length=3);duration:int=Field(default=5,ge=1,le=30);imageUrl:Optional[str]=None
@@ -49,6 +51,10 @@ def gpu_info():
  except Exception as e:info["diagnostic_error"]=str(e)
  return info
 
+def start(job,coro):
+ """Keep a strong reference so background jobs are not garbage-collected mid-run."""
+ task=asyncio.create_task(coro);TASKS.add(task);task.add_done_callback(TASKS.discard)
+
 async def execute(job,req):
  JOBS[job]["status"]="processing";JOBS[job]["gpu"]=gpu_info();save_job(job)
  try:
@@ -59,15 +65,27 @@ async def execute(job,req):
  except Exception as e:JOBS[job].update(status="failed",message=str(e),gpu_after=gpu_info())
  finally:save_job(job)
 
+async def execute_render(job,req):
+ JOBS[job]["status"]="processing";JOBS[job]["message"]="Cinematic finishing" if req.finish else "Joining scenes";save_job(job)
+ try:
+  result=await render(req)
+  JOBS[job].update(status="completed",message="Final film ready",**result)
+ except Exception as e:JOBS[job].update(status="failed",message=str(e))
+ finally:save_job(job)
+
 @app.get("/health")
 def health():
- return {"ok":True,"version":app.version,"providers":list(ADAPTERS.keys()),"gpu":gpu_info(),"output_dir":str(OUTPUT_DIR),"job_dir":str(JOB_DIR)}
+ return {"ok":True,"version":app.version,"providers":list(ADAPTERS.keys()),"capabilities":capabilities(),"gpu":gpu_info(),"output_dir":str(OUTPUT_DIR),"job_dir":str(JOB_DIR)}
+
+@app.get("/capabilities")
+def caps(authorization:Optional[str]=Header(None)):
+ auth(authorization);return capabilities()
 
 @app.post("/generate")
 async def generate(req:Generate,authorization:Optional[str]=Header(None)):
  auth(authorization);job=str(uuid.uuid4())
  JOBS[job]={"jobId":job,"status":"queued","provider":req.provider,"gpu":gpu_info()};save_job(job)
- asyncio.create_task(execute(job,req));return JOBS[job]
+ start(job,execute(job,req));return JOBS[job]
 
 @app.get("/jobs/{job}")
 def status(job:str,authorization:Optional[str]=Header(None)):
@@ -79,8 +97,15 @@ def status(job:str,authorization:Optional[str]=Header(None)):
 async def media(file:UploadFile=File(...),authorization:Optional[str]=Header(None)):
  auth(authorization);return await save_upload(file)
 
+@app.post("/voice")
+async def voice(req:VoiceRequest,authorization:Optional[str]=Header(None)):
+ auth(authorization)
+ try:return {"status":"completed","outputUrl":await synthesize(req)}
+ except Exception as e:return {"status":"failed","message":str(e)}
+
 @app.post("/render")
 async def final_render(req:RenderRequest,authorization:Optional[str]=Header(None)):
- auth(authorization)
- try:return {"status":"completed","outputUrl":await render(req)}
- except Exception as e:return {"status":"failed","message":str(e)}
+ """Rendering can take minutes, so it runs as a job: poll /jobs/{jobId}."""
+ auth(authorization);job=str(uuid.uuid4())
+ JOBS[job]={"jobId":job,"status":"queued","provider":"render"};save_job(job)
+ start(job,execute_render(job,req));return JOBS[job]

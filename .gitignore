@@ -5,3 +5,9 @@ node_modules
 worker/__pycache__
 worker/.venv
 worker/outputs
+
+__pycache__/
+*.pyc
+*.tsbuildinfo
+next-env.d.ts
+package-lock.json
