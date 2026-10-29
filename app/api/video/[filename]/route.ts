@@ -1,4 +1,5 @@
 import {NextRequest,NextResponse} from 'next/server';
+import {assetUrl,cloudConfigured,isCloudAsset} from '@/lib/cloud-github';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -7,9 +8,11 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{filename:str
  const {filename}=await params;
  if(!/^[A-Za-z0-9._-]+\.(mp4|srt)$/i.test(filename))return NextResponse.json({error:'Invalid video filename'},{status:400});
  const isCaptions=/\.srt$/i.test(filename);
+ // Free cloud: scene clips and films are assets of the GitHub "films" release.
+ const cloud=cloudConfigured()&&isCloudAsset(filename);
  // HTTP worker serves /outputs itself; Runpod outputs are served from PUBLIC_OUTPUT_BASE_URL (object storage / file server).
  const base=process.env.GPU_API_URL||process.env.PUBLIC_OUTPUT_BASE_URL;
- if(!base)return NextResponse.json({error:'Set GPU_API_URL (HTTP worker) or PUBLIC_OUTPUT_BASE_URL (Runpod outputs) so videos can be served.'},{status:503});
+ if(!base&&!cloud)return NextResponse.json({error:'Set GPU_API_URL (HTTP worker) or PUBLIC_OUTPUT_BASE_URL (Runpod outputs) so videos can be served.'},{status:503});
 
  const headers:Record<string,string>={
   'ngrok-skip-browser-warning':'true',
@@ -22,7 +25,9 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{filename:str
  if(key)headers.Authorization=`Bearer ${key}`;
 
  try{
-  const upstream=await fetch(base.replace(/\/$/,'')+'/outputs/'+encodeURIComponent(filename),{
+  const target=cloud?assetUrl(filename):base!.replace(/\/$/,'')+'/outputs/'+encodeURIComponent(filename);
+  if(cloud)delete headers.Authorization;
+  const upstream=await fetch(target,{
    headers,
    cache:'no-store',
    redirect:'follow'
@@ -36,7 +41,7 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{filename:str
   if(isCaptions){
    return new NextResponse(await upstream.text(),{headers:{'Content-Type':'application/x-subrip; charset=utf-8','Content-Disposition':`attachment; filename="${filename}"`,'Cache-Control':'no-store'}});
   }
-  if(!contentType.toLowerCase().includes('video/mp4')){
+  if(!cloud&&!contentType.toLowerCase().includes('video/mp4')){
    const body=await upstream.text();
    return NextResponse.json({error:'Upstream did not return MP4',contentType,detail:body.slice(0,300)},{status:502});
   }

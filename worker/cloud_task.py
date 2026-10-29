@@ -22,7 +22,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-FALLBACK_SPACES = "Lightricks/ltx-2-distilled,Lightricks/ltx-2,Lightricks/ltx-video-distilled,zerogpu-aoti/wan2-2-fp8da-aoti-faster"
+# Verified running on ZeroGPU (Oct 2026). Order = preference; the Hub is searched if all fail.
+FALLBACK_SPACES = "Lightricks/LTX-2-3,Lightricks/LTX-2.5,alexnasa/ltx-2-TURBO,Lightricks/ltx-video-distilled,zerogpu-aoti/wan2-2-fp8da-aoti-faster"
 # An empty repository variable must not wipe the defaults, hence `or`.
 DEFAULT_SPACES = [s.strip() for s in (os.getenv("HF_VIDEO_SPACES") or FALLBACK_SPACES).split(",") if s.strip()]
 
@@ -137,7 +138,8 @@ def generate(request: dict, out: Path) -> dict:
                 raise RuntimeError(f"Space returned no video: {str(result)[:300]}")
             shutil.move(video, out)
             log(f"video ready from {space} in {time.time() - started:.0f}s")
-            return {"status": "completed", "provider": "hf", "space": space, "endpoint": endpoint, "seconds": round(time.time() - started)}
+            return {"status": "completed", "provider": "hf", "space": space, "endpoint": endpoint,
+                    "seconds": round(time.time() - started), "skipped": errors}
         except Exception as e:  # try the next Space
             message = str(e)
             log(f"{space} failed: {message[:400]}")
