@@ -15,7 +15,7 @@ jobs:
     uses: ./.github/workflows/studio-cloud.yml
     with:
       task: generate
-      request_id: scene-selftest-01
+      request_id: scene-selftest-02
       request: '{"prompt":"A teacher writes Arabic calligraphy on a whiteboard in a bright modern classroom, warm morning light, slow cinematic dolly-in","duration":3}'
     secrets: inherit
   finish:
@@ -24,6 +24,6 @@ jobs:
     uses: ./.github/workflows/studio-cloud.yml
     with:
       task: finish
-      request_id: film-selftest-01
-      request: '{"clips":["https://github.com/Elsa1172014/ai-video-studio/releases/download/films/scene-selftest-01.mp4","https://github.com/Elsa1172014/ai-video-studio/releases/download/films/scene-selftest-01.mp4"],"finish":{"aspect":"16:9","transition":"dissolve","grade":"cinematic","vignette":0.3,"grain":0.02,"letterbox":true,"fade":0.6,"titleCard":{"title":"رفيقُ العربية الذكي","subtitle":"اختبار المسار السحابي المجاني","duration":3},"captions":["يكتب المعلّم الخطّ العربي على اللوح.","العربية تستحق أن تُحَبّ."]}}'
+      request_id: film-selftest-02
+      request: '{"clips":["https://github.com/Elsa1172014/ai-video-studio/releases/download/films/scene-selftest-02.mp4","https://github.com/Elsa1172014/ai-video-studio/releases/download/films/scene-selftest-02.mp4"],"finish":{"aspect":"16:9","transition":"dissolve","grade":"cinematic","vignette":0.3,"grain":0.02,"letterbox":true,"fade":0.6,"titleCard":{"title":"رفيقُ العربية الذكي","subtitle":"اختبار المسار السحابي المجاني","duration":3},"captions":["يكتب المعلّم الخطّ العربي على اللوح.","العربية تستحق أن تُحَبّ."]}}'
     secrets: inherit
