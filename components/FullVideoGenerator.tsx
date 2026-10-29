@@ -5,7 +5,7 @@ import CinematicFinishPanel from '@/components/CinematicFinishPanel';
 import {buildFinish,defaultFinish,type FinishSettings} from '@/lib/video-tools';
 
 type Report={steps:string[];warnings:string[];duration:number;size:string};
-type Job={jobId?:string;status?:'queued'|'processing'|'completed'|'failed';outputUrl?:string;captionsUrl?:string|null;report?:Report;message?:string;error?:string};
+type Job={jobId?:string;provider?:string;status?:'queued'|'processing'|'completed'|'failed';outputUrl?:string;captionsUrl?:string|null;report?:Report;message?:string;error?:string};
 type Clip={sceneId:string;title:string;url:string};
 async function json(r:Response){const t=await r.text();try{return JSON.parse(t)}catch{return{status:'failed',error:t||('HTTP '+r.status)}}}
 const wait=(ms:number)=>new Promise(r=>setTimeout(r,ms));
@@ -15,7 +15,7 @@ const label=(step:string)=>STEP_LABELS[step]||step.replace(/^(\w+):/,(_,k)=>({tr
 
 export default function FullVideoGenerator({scenes,characterImageUrl,title=''}:{scenes:Scene[];characterImageUrl?:string;title?:string}){
  const key=useMemo(()=>{let h=2166136261;for(const s of scenes){const x=s.id+'|'+s.prompt+'|'+s.duration;for(let i=0;i<x.length;i++){h^=x.charCodeAt(i);h=Math.imul(h,16777619)}}return 'ai-video-progress-'+(h>>>0).toString(16)},[scenes]);
- const[running,setRunning]=useState(false),[index,setIndex]=useState(-1),[clips,setClips]=useState<Clip[]>([]),[error,setError]=useState(''),[finalUrl,setFinalUrl]=useState(''),[captionsUrl,setCaptionsUrl]=useState(''),[report,setReport]=useState<Report|null>(null);
+ const[running,setRunning]=useState(false),[index,setIndex]=useState(-1),[clips,setClips]=useState<Clip[]>([]),[error,setError]=useState(''),[finalUrl,setFinalUrl]=useState(''),[captionsUrl,setCaptionsUrl]=useState(''),[report,setReport]=useState<Report|null>(null),[note,setNote]=useState('');
  const[finish,setFinish]=useState<FinishSettings>(()=>defaultFinish(title));
  const stop=useRef(false);
 
@@ -23,7 +23,7 @@ export default function FullVideoGenerator({scenes,characterImageUrl,title=''}:{
  function persist(next:Clip[],final='',extra:{captionsUrl?:string;report?:Report|null}={},look:FinishSettings=finish){try{localStorage.setItem(key,JSON.stringify({clips:next,finalUrl:final,captionsUrl:extra.captionsUrl||'',report:extra.report||null,finish:look,updatedAt:new Date().toISOString()}))}catch{}}
  function updateFinish(next:FinishSettings){setFinish(next);persist(clips,finalUrl,{captionsUrl,report},next)}
 
- async function complete(job:Job):Promise<Job>{let current=job;while(!stop.current&&current.jobId&&(current.status==='queued'||current.status==='processing')){await wait(3000);current=await json(await fetch('/api/jobs/'+encodeURIComponent(current.jobId),{cache:'no-store'}))}return current}
+ async function complete(job:Job):Promise<Job>{let current=job;setNote(current.message||'');while(!stop.current&&current.jobId&&(current.status==='queued'||current.status==='processing')){await wait(current.provider?.startsWith('cloud')?8000:3000);current=await json(await fetch('/api/jobs/'+encodeURIComponent(current.jobId),{cache:'no-store'}));setNote(current.message||'')}return current}
 
  async function render(made:Clip[]){
   setIndex(scenes.length);setReport(null);
@@ -63,7 +63,7 @@ export default function FullVideoGenerator({scenes,characterImageUrl,title=''}:{
   <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs text-purple-400">FULL STORY PRODUCTION</p><h2 className="font-bold">Generate full video</h2><p className="mt-1 text-xs text-slate-400">{scenes.length} connected scenes · {scenes.reduce((n,s)=>n+s.duration,0)} sec total · {completeCount}/{scenes.length} saved</p></div>
    <div className="flex flex-wrap gap-2"><button onClick={run} disabled={running||!scenes.length} className="btn primary disabled:opacity-40">{running?'Producing…':allDone?'Regenerate missing & finish':completeCount?'Resume Full Video':'Generate Full Video'}</button>{allDone&&<button onClick={finishOnly} disabled={running} className="btn ghost disabled:opacity-40">{finalUrl?'Re-apply cinematic finish':'Finish saved scenes'}</button>}</div></div>
   <CinematicFinishPanel value={finish} onChange={updateFinish} sceneCount={scenes.length} captionsAvailable={captionsAvailable}/>
-  {running&&<div className="mt-4"><div className="flex justify-between text-sm"><span>{index<scenes.length?'Processing scene '+(index+1)+' of '+scenes.length:'Cinematic finishing: transitions, grade, captions, sound…'}</span><span>{Math.round(completeCount/Math.max(1,scenes.length)*100)}%</span></div><div className="mt-2 h-2 overflow-hidden rounded bg-white/10"><div className={'h-full bg-purple-500 transition-all '+(index>=scenes.length?'animate-pulse':'')} style={{width:(completeCount/Math.max(1,scenes.length)*100)+'%'}}/></div></div>}
+  {running&&<div className="mt-4"><div className="flex justify-between text-sm"><span>{index<scenes.length?'Processing scene '+(index+1)+' of '+scenes.length:'Cinematic finishing: transitions, grade, captions, sound…'}</span><span>{Math.round(completeCount/Math.max(1,scenes.length)*100)}%</span></div>{note&&<p className="mt-1 text-xs text-slate-500">{note}</p>}<div className="mt-2 h-2 overflow-hidden rounded bg-white/10"><div className={'h-full bg-purple-500 transition-all '+(index>=scenes.length?'animate-pulse':'')} style={{width:(completeCount/Math.max(1,scenes.length)*100)+'%'}}/></div></div>}
   {completeCount>0&&<div className="mt-3 flex items-center justify-between gap-3"><p className="text-xs text-slate-400">{completeCount} completed scene clips are saved. Interrupted jobs resume without regenerating them, and the finish can be re-applied with a new look.</p><button onClick={reset} disabled={running} className="shrink-0 text-xs text-slate-500 hover:text-white">Reset progress</button></div>}
   {error&&<div className="mt-4 rounded-xl border border-red-500/30 p-3 text-sm text-red-300">{error}</div>}
   {videoSrc&&<div className="mt-4"><p className="mb-2 font-semibold">Final film</p><video className="w-full rounded-xl bg-black" controls preload="metadata" src={videoSrc}/>

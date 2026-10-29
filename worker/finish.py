@@ -141,7 +141,8 @@ async def fetch_media(value: str, folder: Path, name: str) -> Path:
 
 async def normalize(src: Path, dst: Path, w: int, h: int) -> Path:
     """Same fps/size/pixel format/timebase for every clip, so transitions never fail."""
-    vf = f"fps=30,scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,format=yuv420p"
+    # Fill the frame (centre crop) — AI clips arrive in 3:2, 4:3 or square and must never show side bars.
+    vf = f"fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,format=yuv420p"
     await run(ffmpeg(), "-y", "-v", "error", "-i", str(src), "-vf", vf, "-an",
               "-c:v", "libx264", "-preset", "veryfast", "-crf", "17",
               "-video_track_timescale", "15360", str(dst))
@@ -337,7 +338,10 @@ async def finish(clips: list[Path], opts: FinishOptions, out: Path) -> dict:
         if len(parts) == 1:
             shutil.copy(parts[0], current)
         elif td:
-            await k("merge", *map(str, parts), "-t", opts.transition, "-td", f"{td:.2f}", "-o", str(current))
+            # FFmpeg's xfade "dissolve" is a random-pixel dissolve (looks like noise); a cinematic
+            # dissolve is a crossfade, which xfade calls "fade".
+            kind = "fade" if opts.transition in ("fade", "dissolve") else opts.transition
+            await k("merge", *map(str, parts), "-t", kind, "-td", f"{td:.2f}", "-o", str(current))
             steps.append(f"transition:{opts.transition}")
         else:
             manifest = work / "concat.txt"

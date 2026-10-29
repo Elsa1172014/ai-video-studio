@@ -1,4 +1,5 @@
 import type {FinishOptions} from './video-tools';
+import {cloudConfigured,cloudGenerate,cloudRender,cloudStatus,isCloudJob} from './cloud-github';
 
 export type GenerateRequest={provider:string;prompt:string;duration:number;imageUrl?:string};
 export type JobStatus='queued'|'processing'|'completed'|'failed';
@@ -9,6 +10,13 @@ const runpodConfigured=()=>Boolean(process.env.RUNPOD_ENDPOINT_ID&&process.env.R
 const runpodBase=()=>`https://api.runpod.ai/v2/${process.env.RUNPOD_ENDPOINT_ID}`;
 const runpodHeaders=()=>({Authorization:`Bearer ${process.env.RUNPOD_API_KEY}`,'Content-Type':'application/json'});
 const workerBase=()=>process.env.GPU_API_URL?.replace(/\/$/,'');
+/** Backend order: Runpod → HTTP worker → free cloud (GitHub Actions + Hugging Face). STUDIO_BACKEND=cloud forces the cloud. */
+export function backend():'runpod'|'http'|'cloud'|'none'{
+ if(process.env.STUDIO_BACKEND==='cloud'&&cloudConfigured())return 'cloud';
+ if(runpodConfigured())return 'runpod';
+ if(workerBase())return 'http';
+ return cloudConfigured()?'cloud':'none';
+}
 
 function workerHeaders(key?:string):Record<string,string>{return key?{Authorization:`Bearer ${key}`}:{}}
 async function providerError(response:Response):Promise<Error>{let detail='';try{detail=(await response.text()).slice(0,800)}catch{};if(response.status===401)return new Error('GPU authentication failed (401). Check the configured GPU credentials.');return new Error(`Generation provider returned ${response.status}${detail?`: ${detail}`:''}`)}
@@ -51,6 +59,7 @@ async function getRunpod(jobId:string):Promise<GenerateResult>{
 const unconfigured=(provider:string,jobId:string=crypto.randomUUID()):GenerateResult=>({jobId,status:'failed',provider,message:'GPU is not configured. Set RUNPOD_ENDPOINT_ID + RUNPOD_API_KEY, or GPU_API_URL for the HTTP worker.'});
 
 export async function submitGeneration(input:GenerateRequest):Promise<GenerateResult>{
+ if(backend()==='cloud')return cloudGenerate(input);
  if(runpodConfigured())return submitRunpod({action:'generate',...input});
  const base=workerBase(),key=process.env.GPU_API_KEY;
  if(!base)return unconfigured(input.provider);
@@ -61,6 +70,7 @@ export async function submitGeneration(input:GenerateRequest):Promise<GenerateRe
 
 /** Join scene clips. With `finish`, the worker runs the cinematic pipeline (Kinocut + HyperFrames + captions). */
 export async function submitRender(clips:string[],finish?:FinishOptions):Promise<GenerateResult>{
+ if(backend()==='cloud')return cloudRender(clips,finish);
  if(runpodConfigured())return submitRunpod({action:'render',clips,...(finish?{finish}:{})});
  const base=workerBase(),key=process.env.GPU_API_KEY;
  if(!base)return unconfigured('render');
@@ -70,6 +80,7 @@ export async function submitRender(clips:string[],finish?:FinishOptions):Promise
 }
 
 export async function getGeneration(jobId:string):Promise<GenerateResult>{
+ if(isCloudJob(jobId)&&cloudConfigured())return cloudStatus(jobId);
  if(runpodConfigured())return getRunpod(jobId);
  const base=workerBase(),key=process.env.GPU_API_KEY;
  if(!base)return unconfigured('unconfigured',jobId);
@@ -79,6 +90,7 @@ export async function getGeneration(jobId:string):Promise<GenerateResult>{
 }
 
 export async function submitVoice(input:{text:string;language:string;voice:string}):Promise<GenerateResult>{
+ if(backend()==='cloud')return {jobId:crypto.randomUUID(),status:'failed',provider:'voice',message:'Narration needs a TTS engine on a worker; it is not part of the free cloud yet. Upload a recorded voice-over and paste its public link instead.'};
  if(runpodConfigured())return submitRunpod({action:'voice',...input,provider:'voice'});
  const base=workerBase(),key=process.env.GPU_API_KEY;
  if(!base)return unconfigured('voice');
@@ -90,6 +102,7 @@ export async function submitVoice(input:{text:string;language:string;voice:strin
 /** Upload to the HTTP worker's /media endpoint. Runpod workers have no public upload endpoint. */
 export async function uploadMedia(file:File):Promise<{id:string;name:string;url:string}>{
  const base=workerBase(),key=process.env.GPU_API_KEY;
+ if(!base&&backend()==='cloud')throw new Error('Uploads need a worker. On the free cloud, host the file (Google Drive public link, GitHub, Dropbox) and paste its URL.');
  if(!base)throw new Error(runpodConfigured()?'Uploads need the HTTP worker (GPU_API_URL) or object storage. With Runpod, paste a public URL instead.':'GPU worker is not configured.');
  const form=new FormData();form.append('file',file,file.name);
  const r=await fetch(base+'/media',{method:'POST',headers:workerHeaders(key),body:form,cache:'no-store'});
@@ -100,7 +113,8 @@ export async function uploadMedia(file:File):Promise<{id:string;name:string;url:
 
 export type WorkerCapabilities={ffmpeg?:boolean;kinocut?:boolean;hyperframes?:boolean;tts?:boolean;whisper?:boolean;finishing?:boolean};
 
-export async function workerCapabilities():Promise<{provider:'runpod'|'http'|'none';providers:string[];capabilities:WorkerCapabilities|null;error?:string}>{
+export async function workerCapabilities():Promise<{provider:'runpod'|'http'|'cloud'|'none';providers:string[];capabilities:WorkerCapabilities|null;error?:string}>{
+ if(backend()==='cloud')return {provider:'cloud',providers:['ltx','wan'],capabilities:{ffmpeg:true,kinocut:true,hyperframes:true,finishing:true}};
  if(runpodConfigured()){
   // Runpod has no synchronous capability call; the image built from worker/Dockerfile.runpod ships all finishing tools.
   return {provider:'runpod',providers:['ltx','wan','avatar','lipsync'],capabilities:{ffmpeg:true,kinocut:true,hyperframes:true,finishing:true}};

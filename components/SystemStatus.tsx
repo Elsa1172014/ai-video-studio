@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 
-type Health={web?:boolean;gpu?:boolean};
+type Health={web?:boolean;gpu?:boolean;label?:string};
 
 export default function SystemStatus(){
   const[s,setS]=useState<Health|null>(null);
@@ -12,6 +12,6 @@ export default function SystemStatus(){
     <span className={'h-2 w-2 rounded-full '+(s?.web?'bg-emerald-400':'bg-slate-500')}/>
     <span>Web</span>
     <span className={'ml-2 h-2 w-2 rounded-full '+(s?.gpu?'bg-emerald-400':'bg-amber-400')}/>
-    <span>{s?.gpu?'GPU connected':'GPU pending'}</span>
+    <span>{s?.label||(s?.gpu?'GPU connected':'GPU pending')}</span>
   </div>;
 }
