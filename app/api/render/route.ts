@@ -10,7 +10,7 @@ const Body=z.object({clips:z.array(z.string().min(1).max(2048)).min(1,'No clips 
 export async function POST(req:Request){
  let input;
  try{input=Body.parse(await req.json())}
- catch(e){return NextResponse.json({status:'failed',message:e instanceof z.ZodError?e.issues.map(i=>(i.path.join('.')||'body')+': '+i.message).join('; '):'Invalid request'},{status:400})}
+ catch(e){return NextResponse.json({status:'failed',message:e instanceof z.ZodError?e.issues.map(i=>(i.path.join('.')||'body')+': '+i.message).join('; '):'طلب غير صالح'},{status:400})}
  try{return NextResponse.json(await submitRender(input.clips,input.finish??undefined))}
- catch(e){return NextResponse.json({status:'failed',message:e instanceof Error?e.message:'Render failed'},{status:502})}
+ catch(e){return NextResponse.json({status:'failed',message:e instanceof Error?e.message:'تعذّر الإخراج'},{status:502})}
 }

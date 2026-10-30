@@ -8,9 +8,9 @@ const TYPES=/^(image|audio|video)\//;
 export async function POST(req:Request){
  try{
   const form=await req.formData();const file=form.get('file');
-  if(!(file instanceof File))return NextResponse.json({error:'Attach a file in the "file" field.'},{status:400});
-  if(!TYPES.test(file.type))return NextResponse.json({error:'Only image, audio or video files are accepted.'},{status:415});
-  if(file.size>MAX)return NextResponse.json({error:'File is larger than 50 MB. Host it and paste a public URL instead.'},{status:413});
+  if(!(file instanceof File))return NextResponse.json({error:'أرفق ملفاً.'},{status:400});
+  if(!TYPES.test(file.type))return NextResponse.json({error:'يُقبل فقط ملف صورة أو صوت أو فيديو.'},{status:415});
+  if(file.size>MAX)return NextResponse.json({error:'الملف أكبر من ٥٠ ميغابايت. ارفعه إلى خدمة تخزين والصق رابطه العام.'},{status:413});
   return NextResponse.json(await uploadMedia(file));
- }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'Upload failed'},{status:502})}
+ }catch(e){return NextResponse.json({error:e instanceof Error?e.message:'تعذّر الرفع'},{status:502})}
 }

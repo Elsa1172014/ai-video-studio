@@ -10,8 +10,8 @@ export default function SystemStatus(){
   },[]);
   return <div className="flex items-center gap-2 text-xs">
     <span className={'h-2 w-2 rounded-full '+(s?.web?'bg-emerald-400':'bg-slate-500')}/>
-    <span>Web</span>
-    <span className={'ml-2 h-2 w-2 rounded-full '+(s?.gpu?'bg-emerald-400':'bg-amber-400')}/>
-    <span>{s?.label||(s?.gpu?'GPU connected':'GPU pending')}</span>
+    <span>الموقع</span>
+    <span className={'ms-2 h-2 w-2 rounded-full '+(s?.gpu?'bg-emerald-400':'bg-amber-400')}/>
+    <span>{s?.label==='Free cloud'?'السحابة المجانية':s?.label||(s?.gpu?'المعالج متصل':'المعالج غير متصل')}</span>
   </div>;
 }

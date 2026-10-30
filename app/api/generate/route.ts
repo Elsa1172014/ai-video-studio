@@ -15,9 +15,9 @@ const Body=z.object({
 export async function POST(req:Request){
  let input;
  try{input=Body.parse(await req.json())}
- catch(e){return NextResponse.json({status:'failed',error:e instanceof z.ZodError?e.issues.map(i=>i.path.join('.')+': '+i.message).join('; '):'Invalid request'},{status:400})}
+ catch(e){return NextResponse.json({status:'failed',error:e instanceof z.ZodError?e.issues.map(i=>i.path.join('.')+': '+i.message).join('; '):'طلب غير صالح'},{status:400})}
  try{
   const result=await submitGeneration({...input,duration:Math.round(input.duration)});
   return NextResponse.json(result,{status:result.status==='failed'&&result.message?.includes('not configured')?503:200});
- }catch(e){return NextResponse.json({status:'failed',error:e instanceof Error?e.message:'Generation failed'},{status:502})}
+ }catch(e){return NextResponse.json({status:'failed',error:e instanceof Error?e.message:'تعذّر التوليد'},{status:502})}
 }

@@ -61,7 +61,7 @@ async function getRunpod(jobId:string):Promise<GenerateResult>{
  return normalizeRunpod(await r.json());
 }
 
-const unconfigured=(provider:string,jobId:string=crypto.randomUUID()):GenerateResult=>({jobId,status:'failed',provider,message:'GPU is not configured. Set RUNPOD_ENDPOINT_ID + RUNPOD_API_KEY, or GPU_API_URL for the HTTP worker.'});
+const unconfigured=(provider:string,jobId:string=crypto.randomUUID()):GenerateResult=>({jobId,status:'failed',provider,message:'لم يُعدّ أي محرك للتوليد بعد. أضف GITHUB_CLOUD_TOKEN في Vercel لتفعيل السحابة المجانية.'});
 
 export async function submitGeneration(input:GenerateRequest):Promise<GenerateResult>{
  if(backend()==='cloud')return cloudGenerate(input);
@@ -95,7 +95,7 @@ export async function getGeneration(jobId:string):Promise<GenerateResult>{
 }
 
 export async function submitVoice(input:{text:string;language:string;voice:string}):Promise<GenerateResult>{
- if(backend()==='cloud')return {jobId:crypto.randomUUID(),status:'failed',provider:'voice',message:'Narration needs a TTS engine on a worker; it is not part of the free cloud yet. Upload a recorded voice-over and paste its public link instead.'};
+ if(backend()==='cloud')return {jobId:crypto.randomUUID(),status:'failed',provider:'voice',message:'التعليق الصوتي يحتاج محرّكاً على خادم، وليس متاحاً في السحابة المجانية بعد. سجّل صوتك وارفعه، ثم الصق رابطه العام.'};
  if(runpodConfigured())return submitRunpod({action:'voice',...input,provider:'voice'});
  const base=workerBase(),key=process.env.GPU_API_KEY;
  if(!base)return unconfigured('voice');
@@ -107,8 +107,8 @@ export async function submitVoice(input:{text:string;language:string;voice:strin
 /** Upload to the HTTP worker's /media endpoint. Runpod workers have no public upload endpoint. */
 export async function uploadMedia(file:File):Promise<{id:string;name:string;url:string}>{
  const base=workerBase(),key=process.env.GPU_API_KEY;
- if(!base&&backend()==='cloud')throw new Error('Uploads need a worker. On the free cloud, host the file (Google Drive public link, GitHub, Dropbox) and paste its URL.');
- if(!base)throw new Error(runpodConfigured()?'Uploads need the HTTP worker (GPU_API_URL) or object storage. With Runpod, paste a public URL instead.':'GPU worker is not configured.');
+ if(!base&&backend()==='cloud')throw new Error('الرفع يحتاج خادماً. في السحابة المجانية ارفع الملف إلى Google Drive أو Dropbox برابط عام، ثم الصق الرابط.');
+ if(!base)throw new Error(runpodConfigured()?'Uploads need the HTTP worker (GPU_API_URL) or object storage. With Runpod, paste a public URL instead.':'لم يُعدّ خادم بعد.');
  const form=new FormData();form.append('file',file,file.name);
  const r=await fetch(base+'/media',{method:'POST',headers:workerHeaders(key),body:form,cache:'no-store'});
  if(!r.ok)throw await providerError(r);

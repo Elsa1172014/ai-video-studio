@@ -9,7 +9,7 @@ const Body=z.object({text:z.string().trim().min(1).max(5000),language:z.string()
 export async function POST(req:Request){
  let input;
  try{input=Body.parse(await req.json())}
- catch{return NextResponse.json({status:'failed',error:'Text is required (max 5000 characters).'},{status:400})}
+ catch{return NextResponse.json({status:'failed',error:'النص مطلوب (بحد أقصى ٥٠٠٠ حرف).'},{status:400})}
  try{return NextResponse.json(await submitVoice(input))}
- catch(e){return NextResponse.json({status:'failed',error:e instanceof Error?e.message:'Voice generation failed'},{status:502})}
+ catch(e){return NextResponse.json({status:'failed',error:e instanceof Error?e.message:'تعذّر توليد الصوت'},{status:502})}
 }

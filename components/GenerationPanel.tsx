@@ -13,8 +13,10 @@ type Job={
 async function readJob(r:Response):Promise<Job>{
   const text=await r.text();
   try{return JSON.parse(text) as Job;}
-  catch{return{status:'failed',error:`Server returned ${r.status}: ${text.slice(0,240)||'empty response'}`};}
+  catch{return{status:'failed',error:`ردّ الخادم بالرمز ${r.status}: ${text.slice(0,240)||'استجابة فارغة'}`};}
 }
+
+const STATUS:Record<string,string>={queued:'في الانتظار',processing:'قيد المعالجة',completed:'اكتمل',failed:'تعذّر'};
 
 export default function GenerationPanel({prompt,duration=5}:{prompt:string;duration?:number}){
   const [provider,setProvider]=useState('ltx');
@@ -35,7 +37,7 @@ export default function GenerationPanel({prompt,duration=5}:{prompt:string;durat
         setBusy(false);
       }
     }catch(e){
-      setJob({status:'failed',error:e instanceof Error?e.message:'Status check failed'});
+      setJob({status:'failed',error:e instanceof Error?e.message:'تعذّر التحقق من الحالة'});
       setBusy(false);
     }
   }
@@ -59,16 +61,16 @@ export default function GenerationPanel({prompt,duration=5}:{prompt:string;durat
       if(data.jobId)poll(data.jobId);
       else setBusy(false);
     }catch(e){
-      setJob({status:'failed',error:e instanceof Error?e.message:'Generation failed'});
+      setJob({status:'failed',error:e instanceof Error?e.message:'تعذّر التوليد'});
       setBusy(false);
     }
   }
 
   const label=job?.status==='processing'
-    ?'Generating video…'
+    ?'جارٍ توليد الفيديو…'
     :job?.status==='queued'
-      ?'Waiting for GPU…'
-      :busy?'Submitting…':'Generate video clip';
+      ?'في انتظار المعالج…'
+      :busy?'جارٍ الإرسال…':'ولّد مقطع المشهد';
 
   const filename=job?.outputUrl?.split('/').pop();
   const videoSrc=filename?'/api/video/'+encodeURIComponent(filename):undefined;
@@ -77,11 +79,11 @@ export default function GenerationPanel({prompt,duration=5}:{prompt:string;durat
     <div className="card mt-5 p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs text-purple-400">GENERATION ENGINE</p>
-          <h2 className="font-bold">Generate selected scene</h2>
+          <p className="text-xs text-purple-400">محرّك التوليد</p>
+          <h2 className="font-bold">توليد المشهد المحدد</h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="ghost rounded-xl p-3 text-sm">{duration} sec scene</span>
+          <span className="ghost rounded-xl p-3 text-sm">مشهد {duration} ثانية</span>
           <select value={provider} onChange={e=>setProvider(e.target.value)} className="ghost rounded-xl p-3">
             <option value="ltx">LTX Video</option><option value="wan">Wan 2.2</option>
           </select>
@@ -91,7 +93,7 @@ export default function GenerationPanel({prompt,duration=5}:{prompt:string;durat
       {job&&(
         <div className="mt-4 rounded-xl border border-white/10 p-3 text-sm">
           <div className="flex items-center justify-between">
-            <b>Status: {job.status||'error'}</b>
+            <b>الحالة: {STATUS[job.status||'failed']||job.status}</b>
             {job.provider&&<span className="text-xs text-slate-500">{job.provider}</span>}
           </div>
           <p className="mt-1 text-slate-400">{job.message||job.error||job.jobId}</p>
@@ -103,7 +105,7 @@ export default function GenerationPanel({prompt,duration=5}:{prompt:string;durat
           {job.outputUrl&&videoSrc&&(
             <>
               <video className="mt-3 w-full rounded-xl" controls preload="metadata" src={videoSrc}/>
-              <a className="btn ghost mt-3 inline-block" href={videoSrc} target="_blank" rel="noreferrer">Open MP4 ↗</a>
+              <a className="btn ghost mt-3 inline-block" href={videoSrc} target="_blank" rel="noreferrer">فتح الفيديو ↗</a>
             </>
           )}
         </div>

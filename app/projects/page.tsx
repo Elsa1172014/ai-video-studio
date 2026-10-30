@@ -20,10 +20,10 @@ export default function Projects() {
     <main className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-purple-400">LIBRARY</p>
-          <h1 className="text-3xl font-bold">My video projects</h1>
+          <p className="text-sm text-purple-400">المكتبة</p>
+          <h1 className="text-3xl font-bold">مشاريع الفيديو</h1>
         </div>
-        <Link href="/" className="btn primary">+ New video</Link>
+        <Link href="/" className="btn primary">+ فيديو جديد</Link>
       </div>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -32,22 +32,22 @@ export default function Projects() {
             <h2 className="font-bold">{project.title}</h2>
             <p className="mt-2 line-clamp-2 text-sm text-slate-400">{project.prompt}</p>
             <p className="mt-4 text-xs text-slate-500">
-              {project.scenes.length} scenes · {project.minutes} min
+              {project.scenes.length} مشاهد · {project.minutes} دقيقة
             </p>
             <div className="mt-4 flex items-center gap-4">
-              <Link href={'/studio?id='+encodeURIComponent(project.id)} className="text-xs font-bold text-purple-300">Open in Studio →</Link>
+              <Link href={'/studio?id='+encodeURIComponent(project.id)} className="text-xs font-bold text-purple-300">افتح في الاستوديو ←</Link>
               <button
                 type="button"
                 onClick={() => remove(project.id)}
                 className="text-xs text-red-400"
               >
-                Delete
+                حذف
               </button>
             </div>
           </div>
         )) : (
           <div className="card p-8 text-slate-400">
-            No projects yet. Create your first AI video.
+            لا توجد مشاريع بعد. أنشئ أول فيديو بالذكاء الاصطناعي.
           </div>
         )}
       </div>

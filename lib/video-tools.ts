@@ -3,6 +3,8 @@ import {z} from 'zod';
 /** Cinematic finishing options — mirrors worker/finish.py FinishOptions. */
 export const TRANSITIONS = ['none','fade','dissolve','wipe-left','wipe-right','wipe-up','wipe-down'] as const;
 export const GRADES = ['none','cinematic','warm','cool','vintage','noir'] as const;
+export const TRANSITION_LABELS: Record<typeof TRANSITIONS[number],string> = {none:'قطع مباشر',fade:'تلاشٍ',dissolve:'مزج',"wipe-left":'مسح لليسار',"wipe-right":'مسح لليمين',"wipe-up":'مسح للأعلى',"wipe-down":'مسح للأسفل'};
+export const GRADE_LABELS: Record<typeof GRADES[number],string> = {none:'بلا تلوين',cinematic:'سينمائي',warm:'دافئ',cool:'بارد',vintage:'كلاسيكي',noir:'أبيض وأسود'};
 
 const card = z.object({title: z.string().trim().min(1).max(120), subtitle: z.string().max(200).default(''), duration: z.number().min(1.5).max(10).default(3.5)});
 const mediaUrl = z.string().trim().url().refine(u => /^https?:\/\//i.test(u), 'Must be an http(s) URL');
@@ -47,12 +49,12 @@ export type FinishSettings = {
 export type PresetId = 'cinematic'|'documentary'|'classroom'|'vertical'|'noir'|'raw';
 
 export const PRESETS: Record<PresetId,{label:string;hint:string;values:Partial<FinishSettings>}> = {
-  cinematic:  {label:'Cinematic film', hint:'2.39:1 letterbox, teal-gold grade, soft grain, dissolves', values:{aspect:'16:9',transition:'dissolve',transitionDuration:0.7,grade:'cinematic',vignette:0.35,grain:0.02,letterbox:true,fade:0.8}},
-  documentary:{label:'Documentary',    hint:'Natural warm grade, gentle fades, no bars',               values:{aspect:'16:9',transition:'fade',transitionDuration:0.6,grade:'warm',vignette:0.2,grain:0.01,letterbox:false,fade:0.6}},
-  classroom:  {label:'Classroom clear',hint:'Clean picture, large captions, quick cuts — for lessons',  values:{aspect:'16:9',transition:'dissolve',transitionDuration:0.4,grade:'none',vignette:0,grain:0,letterbox:false,fade:0.4}},
-  vertical:   {label:'Reels / Shorts', hint:'9:16 vertical, punchy wipes, social-ready',                values:{aspect:'9:16',transition:'wipe-left',transitionDuration:0.35,grade:'cool',vignette:0.25,grain:0,letterbox:false,fade:0.3}},
-  noir:       {label:'Noir',           hint:'Black & white drama with heavy vignette',                  values:{aspect:'16:9',transition:'fade',transitionDuration:0.8,grade:'noir',vignette:0.55,grain:0.03,letterbox:true,fade:1}},
-  raw:        {label:'Raw join',       hint:'Straight cuts, no finishing (fastest)',                    values:{transition:'none',grade:'none',vignette:0,grain:0,letterbox:false,fade:0,titleOn:false,endOn:false,captionsOn:false}},
+  cinematic:  {label:'فيلم سينمائي', hint:'إطار 2.39:1، تلوين ذهبي، حبيبات خفيفة، مزج ناعم', values:{aspect:'16:9',transition:'dissolve',transitionDuration:0.7,grade:'cinematic',vignette:0.35,grain:0.02,letterbox:true,fade:0.8}},
+  documentary:{label:'وثائقي',    hint:'تلوين دافئ طبيعي، انتقالات هادئة، دون أشرطة',               values:{aspect:'16:9',transition:'fade',transitionDuration:0.6,grade:'warm',vignette:0.2,grain:0.01,letterbox:false,fade:0.6}},
+  classroom:  {label:'درس صفي واضح',hint:'صورة نقية، ترجمة كبيرة، انتقالات سريعة · للدروس',  values:{aspect:'16:9',transition:'dissolve',transitionDuration:0.4,grade:'none',vignette:0,grain:0,letterbox:false,fade:0.4}},
+  vertical:   {label:'ريلز وشورتس', hint:'عمودي 9:16، انتقالات حيوية، جاهز لوسائل التواصل',                values:{aspect:'9:16',transition:'wipe-left',transitionDuration:0.35,grade:'cool',vignette:0.25,grain:0,letterbox:false,fade:0.3}},
+  noir:       {label:'أبيض وأسود',           hint:'دراما بالأبيض والأسود مع تظليل قوي للأطراف',                  values:{aspect:'16:9',transition:'fade',transitionDuration:0.8,grade:'noir',vignette:0.55,grain:0.03,letterbox:true,fade:1}},
+  raw:        {label:'دمج خام',       hint:'قصّ مباشر دون معالجة (الأسرع)',                    values:{transition:'none',grade:'none',vignette:0,grain:0,letterbox:false,fade:0,titleOn:false,endOn:false,captionsOn:false}},
 };
 
 /** Cut at a word boundary so a long project title never ends mid-word on the title card. */
