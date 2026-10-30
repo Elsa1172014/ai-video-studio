@@ -9,11 +9,11 @@ import type {FinishOptions} from './video-tools';
  * Contents read on that repo), optional GITHUB_CLOUD_REF (default main).
  */
 const WORKFLOW='studio-cloud.yml';
-const repo=()=>process.env.GITHUB_CLOUD_REPO||'';
+const repo=()=>(process.env.GITHUB_CLOUD_REPO||'').trim().replace(/^https:\/\/github\.com\//,'').replace(/\/$/,'');
 const api=(path:string)=>`https://api.github.com/repos/${repo()}${path}`;
-const headers=()=>({Authorization:`Bearer ${process.env.GITHUB_CLOUD_TOKEN}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'AI-Video-Studio'});
+const headers=()=>({Authorization:`Bearer ${(process.env.GITHUB_CLOUD_TOKEN||'').trim()}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'AI-Video-Studio'});
 
-export const cloudConfigured=()=>/^[\w.-]+\/[\w.-]+$/.test(repo())&&Boolean(process.env.GITHUB_CLOUD_TOKEN);
+export const cloudConfigured=()=>/^[\w.-]+\/[\w.-]+$/.test(repo())&&Boolean((process.env.GITHUB_CLOUD_TOKEN||'').trim());
 export const isCloudJob=(id:string)=>/^(scene|film)-[A-Za-z0-9-]{6,80}$/.test(id);
 export const isCloudAsset=(filename:string)=>/^(scene|film)-[A-Za-z0-9-]{6,80}\.(mp4|srt|json)$/.test(filename);
 export const assetUrl=(filename:string)=>`https://github.com/${repo()}/releases/download/films/${filename}`;
