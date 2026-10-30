@@ -12,6 +12,9 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{filename:str
  const cloud=cloudConfigured()&&isCloudAsset(filename);
  // HTTP worker serves /outputs itself; Runpod outputs are served from PUBLIC_OUTPUT_BASE_URL (object storage / file server).
  const base=process.env.GPU_API_URL||process.env.PUBLIC_OUTPUT_BASE_URL;
+ // Redirect instead of streaming through the function: video bytes then never count against Vercel's
+ // function CPU/bandwidth limits (streaming MP4s through a function is what pauses Hobby projects).
+ if(cloud)return NextResponse.redirect(assetUrl(filename),{status:302,headers:{'Cache-Control':'no-store'}});
  if(!base&&!cloud)return NextResponse.json({error:'Set GPU_API_URL (HTTP worker) or PUBLIC_OUTPUT_BASE_URL (Runpod outputs) so videos can be served.'},{status:503});
 
  const headers:Record<string,string>={
