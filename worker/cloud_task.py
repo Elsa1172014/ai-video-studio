@@ -14,6 +14,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -75,6 +76,11 @@ def _build_kwargs(params: list[dict], prompt: str, duration: float) -> dict[str,
             kwargs[name] = duration
         elif "randomize" in lname and "seed" in lname:
             kwargs[name] = True
+        elif lname in ("mode", "generation_mode") and isinstance(p.get("parameter_default"), str) \
+                and "image" in str(p.get("parameter_default")).lower():
+            # Some Spaces default to image-to-video; we always send text only.
+            choices = [str(c[0] if isinstance(c, (list, tuple)) else c) for c in (p.get("type") or {}).get("enum", [])]
+            kwargs[name] = next((c for c in choices if "text" in c.lower()), "text-to-video")
         elif "image" in lname and not p.get("parameter_has_default"):
             kwargs[name] = None
         elif p.get("parameter_has_default"):
@@ -134,7 +140,19 @@ def generate(request: dict, out: Path) -> dict:
             kwargs = _build_kwargs(endpoints[endpoint], prompt, duration)
             log(f"calling {endpoint} with {sorted(kwargs)}")
             started = time.time()
-            result = client.predict(api_name=endpoint, **kwargs)
+            try:
+                result = client.predict(api_name=endpoint, **kwargs)
+            except Exception as limit_error:
+                # e.g. "Value 8.0 is greater than maximum value 5.0": retry once at the Space's limit;
+                # the finish step extends the clip to the planned scene length.
+                m = re.search(r"greater than maximum value ([0-9.]+)", str(limit_error))
+                dkeys = [k for k in kwargs if any(k.lower() == d or k.lower().startswith(d) for d in DURATION_KEYS)]
+                if not (m and dkeys):
+                    raise
+                for k in dkeys:
+                    kwargs[k] = float(m.group(1))
+                log(f"retrying {space} with duration {m.group(1)}")
+                result = client.predict(api_name=endpoint, **kwargs)
             video = _find_video(result)
             if not video:
                 raise RuntimeError(f"Space returned no video: {str(result)[:300]}")
