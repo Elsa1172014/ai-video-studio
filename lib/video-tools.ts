@@ -25,6 +25,7 @@ export const FinishSchema = z.object({
   music: mediaUrl.nullish(),
   musicVolume: z.number().min(0).max(1.5).default(0.25),
   voice: mediaUrl.nullish(),
+  durations: z.array(z.number().min(0.5).max(600)).max(400).nullish(),
 });
 export type FinishOptions = z.infer<typeof FinishSchema>;
 
@@ -86,8 +87,8 @@ export function isRaw(s: FinishSettings) {
 }
 
 /** Compile UI settings into the worker payload. Captions come from each scene's source text. */
-export function buildFinish(s: FinishSettings, sceneTexts: (string|undefined)[]): FinishOptions|undefined {
-  if (isRaw(s)) return undefined;
+export function buildFinish(s: FinishSettings, sceneTexts: (string|undefined)[], durations?: number[]): FinishOptions|undefined {
+  if (isRaw(s)) return durations?.length ? FinishSchema.parse({transition:'none',grade:'none',vignette:0,grain:0,letterbox:false,fade:0,durations}) : undefined;
   return FinishSchema.parse({
     aspect:s.aspect, transition:s.transition, transitionDuration:s.transitionDuration, grade:s.grade,
     vignette:s.vignette, grain:s.grain, letterbox:s.letterbox, fade:s.fade,
@@ -95,5 +96,6 @@ export function buildFinish(s: FinishSettings, sceneTexts: (string|undefined)[])
     endCard: s.endOn&&s.endTitle.trim() ? {title:s.endTitle.trim().slice(0,120), subtitle:s.endSubtitle.trim().slice(0,200), duration:3} : null,
     captions: s.captionsOn ? sceneTexts.map(t => t?.trim() ? t.trim().slice(0,400) : null) : null,
     music: s.music.trim()||null, musicVolume:s.musicVolume, voice: s.voice.trim()||null,
+    durations: durations?.length ? durations : null,
   });
 }

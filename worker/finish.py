@@ -55,6 +55,9 @@ class FinishOptions(BaseModel):
     music: Optional[str] = None  # http(s) URL or worker /outputs URL
     musicVolume: float = Field(default=0.25, ge=0, le=1.5)
     voice: Optional[str] = None  # narration track (http(s) or worker /outputs URL)
+    # Planned length of each scene (seconds), same order as the clips. Short AI clips are
+    # extended to these lengths so the film runs as long as the user asked for.
+    durations: Optional[list[float]] = None
 
 
 # ---------------------------------------------------------------- helpers
@@ -139,13 +142,32 @@ async def fetch_media(value: str, folder: Path, name: str) -> Path:
     return target
 
 
-async def normalize(src: Path, dst: Path, w: int, h: int) -> Path:
-    """Same fps/size/pixel format/timebase for every clip, so transitions never fail."""
+async def normalize(src: Path, dst: Path, w: int, h: int, target: Optional[float] = None) -> Path:
+    """Same fps/size/pixel format/timebase for every clip, so transitions never fail.
+
+    With `target`, a clip shorter than its planned scene is extended: first a gentle slow-down
+    (at most 1.6x, which reads as cinematic slow motion), then a forward-reverse "boomerang"
+    loop, and finally trimmed to the exact planned length.
+    """
     # Fill the frame (centre crop) — AI clips arrive in 3:2, 4:3 or square and must never show side bars.
-    vf = f"fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,format=yuv420p"
-    await run(ffmpeg(), "-y", "-v", "error", "-i", str(src), "-vf", vf, "-an",
-              "-c:v", "libx264", "-preset", "veryfast", "-crf", "17",
-              "-video_track_timescale", "15360", str(dst))
+    base_vf = f"fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1,format=yuv420p"
+    enc = ["-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "17", "-video_track_timescale", "15360"]
+    if not target:
+        await run(ffmpeg(), "-y", "-v", "error", "-i", str(src), "-vf", base_vf, *enc, str(dst))
+        return dst
+    length = await duration(src)
+    slow = 1.0 if length >= target else min(1.6, target / max(length, 0.1))
+    stretched = dst.with_name(dst.stem + "-s.mp4")
+    await run(ffmpeg(), "-y", "-v", "error", "-i", str(src), "-vf", f"setpts={slow:.4f}*PTS,{base_vf}", *enc, str(stretched))
+    if length * slow + 0.05 >= target:
+        await run(ffmpeg(), "-y", "-v", "error", "-i", str(stretched), "-t", f"{target:.3f}", *enc, str(dst))
+    else:
+        boomerang = dst.with_name(dst.stem + "-b.mp4")
+        await run(ffmpeg(), "-y", "-v", "error", "-i", str(stretched), "-filter_complex",
+                  "[0:v]split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1:a=0[v]", "-map", "[v]", *enc, str(boomerang))
+        await run(ffmpeg(), "-y", "-v", "error", "-stream_loop", "-1", "-i", str(boomerang), "-t", f"{target:.3f}", *enc, str(dst))
+        boomerang.unlink(missing_ok=True)
+    stretched.unlink(missing_ok=True)
     return dst
 
 
@@ -313,7 +335,8 @@ async def finish(clips: list[Path], opts: FinishOptions, out: Path) -> dict:
         # 1. normalize scene clips
         parts: list[Path] = []
         for i, clip in enumerate(clips):
-            parts.append(await normalize(clip, work / f"scene-{i:03}.mp4", w, h))
+            target = opts.durations[i] if opts.durations and i < len(opts.durations) else None
+            parts.append(await normalize(clip, work / f"scene-{i:03}.mp4", w, h, target))
         steps.append(f"normalize:{len(parts)}")
         captions: list[Optional[str]] = list(opts.captions or [])
         captions = (captions + [None] * len(parts))[: len(parts)]

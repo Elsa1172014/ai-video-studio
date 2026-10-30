@@ -12,6 +12,7 @@ from storage import OUTPUT_DIR, public_url
 class RenderRequest(BaseModel):
     clips: list[str]
     finish: Optional[FinishOptions] = None
+    durations: Optional[list[float]] = None
 
 
 def local_clip(value: str) -> Path:
@@ -43,8 +44,13 @@ async def render(x: RenderRequest) -> dict:
         raise RuntimeError('At least one clip is required')
     paths = [local_clip(c) for c in x.clips]
     out = OUTPUT_DIR / f'{uuid.uuid4()}.mp4'
-    if x.finish:
-        report = await finish(paths, x.finish, out)
+    opts = x.finish
+    if not opts and x.durations:
+        opts = FinishOptions(transition="none", grade="none", vignette=0, grain=0, letterbox=False, fade=0)
+    if opts and x.durations and not opts.durations:
+        opts = opts.model_copy(update={"durations": x.durations})
+    if opts:
+        report = await finish(paths, opts, out)
         srt = out.with_suffix('.srt')
         return {'outputUrl': public_url(out), 'captionsUrl': public_url(srt) if srt.exists() else None, 'report': report}
     await _concat(paths, out)

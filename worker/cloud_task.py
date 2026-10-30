@@ -23,7 +23,9 @@ from pathlib import Path
 from typing import Any
 
 # Verified running on ZeroGPU (Oct 2026). Order = preference; the Hub is searched if all fail.
-FALLBACK_SPACES = "alexnasa/ltx-2-TURBO,Lightricks/LTX-2-3,Lightricks/ltx-video-distilled,zerogpu-aoti/wan2-2-fp8da-aoti-faster"
+# Spaces that honour a duration input come first; alexnasa/ltx-2-TURBO ignores duration (~3 s clips)
+# and is the last resort — the finish step extends short clips to the planned scene length.
+FALLBACK_SPACES = "Lightricks/ltx-video-distilled,Upsampler/ltx-video,Lightricks/LTX-2-3,zerogpu-aoti/wan2-2-fp8da-aoti-faster,alexnasa/ltx-2-TURBO"
 # An empty repository variable must not wipe the defaults, hence `or`.
 DEFAULT_SPACES = [s.strip() for s in (os.getenv("HF_VIDEO_SPACES") or FALLBACK_SPACES).split(",") if s.strip()]
 
@@ -175,7 +177,13 @@ def finish(request: dict, out: Path) -> dict:
     if not clips:
         raise RuntimeError("No clips supplied")
     opts = request.get("finish")
+    durations = request.get("durations")
+    if not opts and durations:
+        # Plain join, but still extend each clip to its planned scene length.
+        opts = {"transition": "none", "grade": "none", "vignette": 0, "grain": 0, "letterbox": False, "fade": 0}
     if opts:
+        if durations and not opts.get("durations"):
+            opts = {**opts, "durations": durations}
         report = asyncio.run(run_finish(clips, FinishOptions(**opts), out))
         return {"status": "completed", "report": report, "captions": out.with_suffix(".srt").exists()}
     asyncio.run(_concat(clips, out))

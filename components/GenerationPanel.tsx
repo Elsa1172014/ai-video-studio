@@ -70,7 +70,7 @@ export default function GenerationPanel({prompt,duration=5}:{prompt:string;durat
     ?'جارٍ توليد الفيديو…'
     :job?.status==='queued'
       ?'في انتظار المعالج…'
-      :busy?'جارٍ الإرسال…':'ولّد مقطع المشهد';
+      :busy?'جارٍ الإرسال…':'معاينة هذا المشهد فقط';
 
   const filename=job?.outputUrl?.split('/').pop();
   const videoSrc=filename?'/api/video/'+encodeURIComponent(filename):undefined;
@@ -79,8 +79,8 @@ export default function GenerationPanel({prompt,duration=5}:{prompt:string;durat
     <div className="card mt-5 p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs text-purple-400">محرّك التوليد</p>
-          <h2 className="font-bold">توليد المشهد المحدد</h2>
+          <p className="text-xs text-purple-400">معاينة مشهد واحد (اختياري)</p>
+          <h2 className="font-bold">جرّب المشهد المحدد وحده قبل الإنتاج الكامل</h2>
         </div>
         <div className="flex items-center gap-2">
           <span className="ghost rounded-xl p-3 text-sm">مشهد {duration} ثانية</span>
