@@ -12,10 +12,15 @@ const runpodHeaders=()=>({Authorization:`Bearer ${process.env.RUNPOD_API_KEY}`,'
 const workerBase=()=>process.env.GPU_API_URL?.replace(/\/$/,'');
 /** Backend order: Runpod → HTTP worker → free cloud (GitHub Actions + Hugging Face). STUDIO_BACKEND=cloud forces the cloud. */
 export function backend():'runpod'|'http'|'cloud'|'none'{
- if(process.env.STUDIO_BACKEND==='cloud'&&cloudConfigured())return 'cloud';
+ // The free cloud wins whenever it is configured: a stale GPU_API_URL left in the dashboard must not
+ // hijack production. Set STUDIO_BACKEND=runpod or =http to prefer a paid worker instead.
+ const forced=(process.env.STUDIO_BACKEND||'').trim();
+ if(forced==='runpod'&&runpodConfigured())return 'runpod';
+ if(forced==='http'&&workerBase())return 'http';
+ if(cloudConfigured())return 'cloud';
  if(runpodConfigured())return 'runpod';
  if(workerBase())return 'http';
- return cloudConfigured()?'cloud':'none';
+ return 'none';
 }
 
 function workerHeaders(key?:string):Record<string,string>{return key?{Authorization:`Bearer ${key}`}:{}}

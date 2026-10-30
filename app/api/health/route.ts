@@ -3,6 +3,11 @@ import {backend} from '@/lib/generation';
 
 export const dynamic='force-dynamic';
 
+function cloudDiag(){
+ const repo=(process.env.GITHUB_CLOUD_REPO||'').trim().replace(/^https:\/\/github\.com\//,'').replace(/\/$/,'');
+ return {GITHUB_CLOUD_REPO:!repo?'missing':/^[\w.-]+\/[\w.-]+$/.test(repo)?'ok':'invalid (use owner/repo, e.g. Elsa1172014/ai-video-studio)',GITHUB_CLOUD_TOKEN:(process.env.GITHUB_CLOUD_TOKEN||'').trim()?'set':'missing',GPU_API_URL:process.env.GPU_API_URL?'set':'not set',deployment:process.env.VERCEL_ENV||'local'};
+}
+
 export async function GET(){
  const mode=backend();
  if(mode==='cloud')return NextResponse.json({web:true,gpu:true,status:'cloud-ready',provider:'cloud',label:'Free cloud'});
@@ -15,5 +20,5 @@ export async function GET(){
   const cloud={GITHUB_CLOUD_REPO:!repo?'missing':/^[\w.-]+\/[\w.-]+$/.test(repo.trim().replace(/^https:\/\/github\.com\//,'').replace(/\/$/,''))?'ok':'invalid (use owner/repo, e.g. Elsa1172014/ai-video-studio)',GITHUB_CLOUD_TOKEN:process.env.GITHUB_CLOUD_TOKEN?'set':'missing',deployment:process.env.VERCEL_ENV||'local'};
   return NextResponse.json({web:true,gpu:false,status:'gpu-unconfigured',cloud});
  }
- try{const r=await fetch(base.replace(/\/$/,'')+'/health',{headers:legacyKey?{Authorization:`Bearer ${legacyKey}`}:{},cache:'no-store',signal:AbortSignal.timeout(10000)});return NextResponse.json({web:true,gpu:r.ok,status:r.ok?'gpu-ready':'gpu-error',provider:'legacy',httpStatus:r.status})}catch(e){return NextResponse.json({web:true,gpu:false,status:'gpu-unreachable',error:e instanceof Error?e.message:'Unknown error'})}
+ try{const r=await fetch(base.replace(/\/$/,'')+'/health',{headers:legacyKey?{Authorization:`Bearer ${legacyKey}`}:{},cache:'no-store',signal:AbortSignal.timeout(10000)});return NextResponse.json({web:true,gpu:r.ok,status:r.ok?'gpu-ready':'gpu-error',provider:'legacy',httpStatus:r.status,cloud:cloudDiag()})}catch(e){return NextResponse.json({web:true,gpu:false,status:'gpu-unreachable',error:e instanceof Error?e.message:'Unknown error',cloud:cloudDiag()})}
 }
